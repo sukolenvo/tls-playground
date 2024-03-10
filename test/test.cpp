@@ -35,3 +35,35 @@ TEST_CASE("get-bit-false", "get-bit")
     CAPTURE(task.first);
     REQUIRE(get_bit(task.first.cbegin(), task.second) == false);
 }
+
+TEST_CASE("set-bit")
+{
+    auto task = GENERATE(
+            std::make_tuple(std::vector<unsigned char>{0xFF}, 1, std::vector<unsigned char>{0xFF}),
+            std::make_tuple(std::vector<unsigned char>{0x0}, 1, std::vector<unsigned char>{0x80}),
+            std::make_tuple(std::vector<unsigned char>{0x0}, 2, std::vector<unsigned char>{0x40}),
+            std::make_tuple(std::vector<unsigned char>{0x0}, 4, std::vector<unsigned char>{0x10}),
+            std::make_tuple(std::vector<unsigned char>{0x0}, 8, std::vector<unsigned char>{0x01}),
+            std::make_tuple(std::vector<unsigned char>{0x0, 0x0}, 9, std::vector<unsigned char>{0x00, 0x80}),
+            std::make_tuple(std::vector<unsigned char>{0x0, 0x0}, 10, std::vector<unsigned char>{0x00, 0x40})
+    );
+    CAPTURE(std::get<0>(task), std::get<1>(task));
+    set_bit(std::get<0>(task), std::get<1>(task));
+    REQUIRE(std::get<0>(task) == std::get<2>(task));
+}
+
+TEST_CASE("clear-bit")
+{
+    auto task = GENERATE(
+            std::make_tuple(std::vector<unsigned char>{0x00}, 1, std::vector<unsigned char>{0x0}),
+            std::make_tuple(std::vector<unsigned char>{0xFF}, 1, std::vector<unsigned char>{0x7F}),
+            std::make_tuple(std::vector<unsigned char>{0xFF}, 2, std::vector<unsigned char>{0xBF}),
+            std::make_tuple(std::vector<unsigned char>{0xFF}, 4, std::vector<unsigned char>{0xEF}),
+            std::make_tuple(std::vector<unsigned char>{0xFF}, 8, std::vector<unsigned char>{0xFE}),
+            std::make_tuple(std::vector<unsigned char>{0xFF, 0xFF}, 9, std::vector<unsigned char>{0xFF, 0x7F}),
+            std::make_tuple(std::vector<unsigned char>{0xFF, 0xFF}, 10, std::vector<unsigned char>{0xFF, 0xBF})
+    );
+    CAPTURE(std::get<0>(task), std::get<1>(task));
+    clear_bit(std::get<0>(task), std::get<1>(task));
+    REQUIRE(std::get<0>(task) == std::get<2>(task));
+}
