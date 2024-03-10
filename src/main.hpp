@@ -30,20 +30,17 @@ void set_bit(std::vector<unsigned char> &src, unsigned int index);
  */
 void clear_bit(std::vector<unsigned char> &src, unsigned int index);
 
-static void permute(std::vector<unsigned char> &target, std::vector<unsigned char> &src, std::vector<unsigned int> permute_table) {
-    if (permute_table.size() * 8 != target.size()) {
-        throw std::runtime_error("permute table size doesn't match target size");
-    }
-    if (src.size() > target.size()) {
-        throw std::runtime_error("unexpected source size");
-    }
-    for (int i = 0; i < src.size() * 8; ++i) {
-        if (get_bit(src.cbegin(), permute_table.at(i))) {
-            set_bit(target, i);
-        } else {
-            clear_bit(target, i);
-        }
-    }
-}
+const auto initial_permute_table = std::vector<unsigned int>{
+    58, 50, 42, 34, 26, 18, 10, 2,
+    60, 52, 44, 36, 28, 20, 12, 4,
+    62, 54, 46, 38, 30, 22, 14, 6,
+    64, 56, 48, 40, 32, 24, 16, 8,
+    57, 49, 41, 33, 25, 17, 9, 1,
+    59, 51, 43, 35, 27, 19, 11, 3,
+    61, 53, 45, 37, 29, 21, 13, 5,
+    63, 55, 47, 39, 31, 23, 15, 7
+};
+
+void permute(std::vector<unsigned char> &target, std::vector<unsigned char> &src, std::vector<unsigned int> permute_table);
 
 #endif //TLS_PLAYGROUND_MAIN_HPP

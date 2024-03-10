@@ -1,4 +1,5 @@
 #include <tuple>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -66,4 +67,22 @@ TEST_CASE("clear-bit")
     CAPTURE(std::get<0>(task), std::get<1>(task));
     clear_bit(std::get<0>(task), std::get<1>(task));
     REQUIRE(std::get<0>(task) == std::get<2>(task));
+}
+
+TEST_CASE("initial_permute")
+{
+    auto task = GENERATE(
+            std::make_pair(std::vector<unsigned char>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                           std::vector<unsigned char>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
+            std::make_pair(std::vector<unsigned char>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+                           std::vector<unsigned char>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}),
+            std::make_pair(std::vector<unsigned char>{0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40},
+                           std::vector<unsigned char>{0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
+            std::make_pair(std::vector<unsigned char>{0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50},
+                           std::vector<unsigned char>{0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
+    );
+    CAPTURE(task.first);
+    std::vector<unsigned char> target(8);
+    permute(target, task.first, initial_permute_table);
+    REQUIRE(target == task.second);
 }
