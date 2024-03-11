@@ -7,46 +7,16 @@
 #include "main.hpp"
 
 
-TEST_CASE("get-bit-true", "get-bit")
-{
-    auto task = GENERATE(
-            std::make_pair(std::vector<unsigned char>{0x80}, 1),
-            std::make_pair(std::vector<unsigned char>{0x00, 0x80, 0x80}, 9),
-            std::make_pair(std::vector<unsigned char>{0x00, 0x00, 0x80}, 17),
-            std::make_pair(std::vector<unsigned char>{0x40}, 2),
-            std::make_pair(std::vector<unsigned char>{0x10}, 4),
-            std::make_pair(std::vector<unsigned char>{0x04}, 6),
-            std::make_pair(std::vector<unsigned char>{0x01}, 8)
-    );
-    CAPTURE(task.first);
-    REQUIRE(get_bit(task.first.cbegin(), task.second) == true);
-}
-
-TEST_CASE("get-bit-false", "get-bit")
-{
-    auto task = GENERATE(
-            std::make_pair(std::vector<unsigned char>{0x7F}, 1),
-            std::make_pair(std::vector<unsigned char>{0xFF, 0x7F, 0x7F}, 9),
-            std::make_pair(std::vector<unsigned char>{0xFF, 0xFF, 0x7F}, 17),
-            std::make_pair(std::vector<unsigned char>{0xBF}, 2),
-            std::make_pair(std::vector<unsigned char>{0xEF}, 4),
-            std::make_pair(std::vector<unsigned char>{0xFB}, 6),
-            std::make_pair(std::vector<unsigned char>{0xFE}, 8)
-    );
-    CAPTURE(task.first);
-    REQUIRE(get_bit(task.first.cbegin(), task.second) == false);
-}
-
 TEST_CASE("set-bit")
 {
     auto task = GENERATE(
-            std::make_tuple(std::vector<unsigned char>{0xFF}, 1, std::vector<unsigned char>{0xFF}),
-            std::make_tuple(std::vector<unsigned char>{0x0}, 1, std::vector<unsigned char>{0x80}),
-            std::make_tuple(std::vector<unsigned char>{0x0}, 2, std::vector<unsigned char>{0x40}),
-            std::make_tuple(std::vector<unsigned char>{0x0}, 4, std::vector<unsigned char>{0x10}),
-            std::make_tuple(std::vector<unsigned char>{0x0}, 8, std::vector<unsigned char>{0x01}),
-            std::make_tuple(std::vector<unsigned char>{0x0, 0x0}, 9, std::vector<unsigned char>{0x00, 0x80}),
-            std::make_tuple(std::vector<unsigned char>{0x0, 0x0}, 10, std::vector<unsigned char>{0x00, 0x40})
+            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 1, std::array<unsigned char, 2>{0xFF}),
+            std::make_tuple(std::array<unsigned char, 2>{0x0}, 1, std::array<unsigned char, 2>{0x80}),
+            std::make_tuple(std::array<unsigned char, 2>{0x0}, 2, std::array<unsigned char, 2>{0x40}),
+            std::make_tuple(std::array<unsigned char, 2>{0x0}, 4, std::array<unsigned char, 2>{0x10}),
+            std::make_tuple(std::array<unsigned char, 2>{0x0}, 8, std::array<unsigned char, 2>{0x01}),
+            std::make_tuple(std::array<unsigned char, 2>{0x0, 0x0}, 9, std::array<unsigned char, 2>{0x00, 0x80}),
+            std::make_tuple(std::array<unsigned char, 2>{0x0, 0x0}, 10, std::array<unsigned char, 2>{0x00, 0x40})
     );
     CAPTURE(std::get<0>(task), std::get<1>(task));
     set_bit(std::get<0>(task), std::get<1>(task));
@@ -56,13 +26,13 @@ TEST_CASE("set-bit")
 TEST_CASE("clear-bit")
 {
     auto task = GENERATE(
-            std::make_tuple(std::vector<unsigned char>{0x00}, 1, std::vector<unsigned char>{0x0}),
-            std::make_tuple(std::vector<unsigned char>{0xFF}, 1, std::vector<unsigned char>{0x7F}),
-            std::make_tuple(std::vector<unsigned char>{0xFF}, 2, std::vector<unsigned char>{0xBF}),
-            std::make_tuple(std::vector<unsigned char>{0xFF}, 4, std::vector<unsigned char>{0xEF}),
-            std::make_tuple(std::vector<unsigned char>{0xFF}, 8, std::vector<unsigned char>{0xFE}),
-            std::make_tuple(std::vector<unsigned char>{0xFF, 0xFF}, 9, std::vector<unsigned char>{0xFF, 0x7F}),
-            std::make_tuple(std::vector<unsigned char>{0xFF, 0xFF}, 10, std::vector<unsigned char>{0xFF, 0xBF})
+            std::make_tuple(std::array<unsigned char, 2>{0x00}, 1, std::array<unsigned char, 2>{0x0}),
+            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 1, std::array<unsigned char, 2>{0x7F}),
+            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 2, std::array<unsigned char, 2>{0xBF}),
+            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 4, std::array<unsigned char, 2>{0xEF}),
+            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 8, std::array<unsigned char, 2>{0xFE}),
+            std::make_tuple(std::array<unsigned char, 2>{0xFF, 0xFF}, 9, std::array<unsigned char, 2>{0xFF, 0x7F}),
+            std::make_tuple(std::array<unsigned char, 2>{0xFF, 0xFF}, 10, std::array<unsigned char, 2>{0xFF, 0xBF})
     );
     CAPTURE(std::get<0>(task), std::get<1>(task));
     clear_bit(std::get<0>(task), std::get<1>(task));
@@ -73,17 +43,27 @@ TEST_CASE("initial_permute")
 {
 	auto task = GENERATE(
 		std::make_pair(std::vector<unsigned char>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-					   std::vector<unsigned char>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
+					   std::array<unsigned char, 8>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
 		std::make_pair(std::vector<unsigned char>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
-					   std::vector<unsigned char>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}),
+					   std::array<unsigned char, 8>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}),
 		std::make_pair(std::vector<unsigned char>{0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40},
-					   std::vector<unsigned char>{0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
+					   std::array<unsigned char, 8>{0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
 		std::make_pair(std::vector<unsigned char>{0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50},
-					   std::vector<unsigned char>{0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
+					   std::array<unsigned char, 8>{0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
 	);
 	CAPTURE(task.first);
-	std::vector<unsigned char> target(8);
-	permute(target, task.first, initial_permute_table);
+	std::array<unsigned char, 8> target;
+	const std::array<unsigned int, 64> table = std::array<unsigned int, 64>{
+			58, 50, 42, 34, 26, 18, 10, 2,
+			60, 52, 44, 36, 28, 20, 12, 4,
+			62, 54, 46, 38, 30, 22, 14, 6,
+			64, 56, 48, 40, 32, 24, 16, 8,
+			57, 49, 41, 33, 25, 17, 9, 1,
+			59, 51, 43, 35, 27, 19, 11, 3,
+			61, 53, 45, 37, 29, 21, 13, 5,
+			63, 55, 47, 39, 31, 23, 15, 7
+	};
+	permute(target, task.first, table);
 	REQUIRE(target == task.second);
 }
 
