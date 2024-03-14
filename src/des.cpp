@@ -331,3 +331,97 @@ std::vector<unsigned char> des_cbc_pkcs5_decrypt(const std::vector<unsigned char
 	result.resize(result.size() - result.back());
 	return result;
 }
+
+std::vector<unsigned char> des3_cbc_pkcs5_encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 24> &key, const std::array<unsigned char, 8> &iv)
+{
+	std::array<unsigned char, 8> des_key;
+	std::copy_n(key.cbegin(), 8, des_key.begin());
+	const auto schedule_keys1 = build_encrypt_schedule_key(des_key);
+	std::copy_n(key.cbegin() + 8, 8, des_key.begin());
+	const auto schedule_keys2 = build_decrypt_schedule_key(des_key);
+	std::copy_n(key.cbegin() + 16, 8, des_key.begin());
+	const auto schedule_keys3 = build_encrypt_schedule_key(des_key);
+	std::vector<unsigned char> result{};
+	std::array<unsigned char, 8> input_block;
+	std::array<unsigned char, 8> cypher_block = iv;
+
+	for (size_t i = 0; i <= data.size(); i += 8)
+	{
+		if (i + 8 < data.size())
+		{
+			std::copy_n(data.cbegin() + i, 8, input_block.begin());
+			std::transform(input_block.begin(), input_block.end(), cypher_block.cbegin(),
+					input_block.begin(),
+					[](const auto &left, const auto &right)
+					{
+						return left ^ right;
+					});
+			des_block_process(input_block, cypher_block, schedule_keys1);
+			std::copy_n(cypher_block.cbegin(), 8, input_block.begin());
+			des_block_process(input_block, cypher_block, schedule_keys2);
+			std::copy_n(cypher_block.cbegin(), 8, input_block.begin());
+			des_block_process(input_block, cypher_block, schedule_keys3);
+			std::copy_n(cypher_block.cbegin(), 8, std::back_inserter(result));
+		}
+		else
+		{
+			input_block.fill(i + 8 - data.size());
+			std::copy_n(data.cbegin() + i, data.size() - i, input_block.begin());
+			std::transform(input_block.begin(), input_block.end(), cypher_block.cbegin(),
+					input_block.begin(),
+					[](const auto &left, const auto &right)
+					{
+						return left ^ right;
+					});
+			des_block_process(input_block, cypher_block, schedule_keys1);
+			std::copy_n(cypher_block.cbegin(), 8, input_block.begin());
+			des_block_process(input_block, cypher_block, schedule_keys2);
+			std::copy_n(cypher_block.cbegin(), 8, input_block.begin());
+			des_block_process(input_block, cypher_block, schedule_keys3);
+			std::copy_n(cypher_block.cbegin(), 8, std::back_inserter(result));
+		}
+	}
+	return result;
+}
+
+std::vector<unsigned char> des3_cbc_pkcs5_decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 24> &key, const std::array<unsigned char, 8> &iv)
+{
+	if (data.empty() || data.size() % 8 != 0)
+	{
+		throw std::runtime_error("Malformed cypher data");
+	}
+	std::array<unsigned char, 8> des_key;
+	std::copy_n(key.cbegin() + 16, 8, des_key.begin());
+	const auto schedule_keys1 = build_decrypt_schedule_key(des_key);
+	std::copy_n(key.cbegin() + 8, 8, des_key.begin());
+	const auto schedule_keys2 = build_encrypt_schedule_key(des_key);
+	std::copy_n(key.cbegin(), 8, des_key.begin());
+	const auto schedule_keys3 = build_decrypt_schedule_key(des_key);
+	std::vector<unsigned char> result{};
+	std::array<unsigned char, 8> input_block;
+	std::array<unsigned char, 8> output_block;
+	auto next_iv = iv;
+	for (size_t i = 0; i < data.size(); i += 8)
+	{
+		std::copy_n(data.cbegin() + i, 8, input_block.begin());
+		des_block_process(input_block, output_block, schedule_keys1);
+		std::copy_n(output_block.cbegin(), 8, input_block.begin());
+		des_block_process(input_block, output_block, schedule_keys2);
+		std::copy_n(output_block.cbegin(), 8, input_block.begin());
+		des_block_process(input_block, output_block, schedule_keys3);
+		std::transform(output_block.begin(), output_block.end(), next_iv.cbegin(),
+				output_block.begin(),
+				[](const auto &left, const auto &right)
+				{
+					return left ^ right;
+				});
+		std::copy_n(data.cbegin() + i, 8, next_iv.begin());
+		std::copy_n(output_block.cbegin(), 8, std::back_inserter(result));
+	}
+	if (result.back() > 8 || result.back() < 1)
+	{
+		throw std::runtime_error("PKCS5 padding expected");
+	}
+	result.resize(result.size() - result.back());
+	return result;
+}

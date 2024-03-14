@@ -68,4 +68,8 @@ std::vector<unsigned char> des_cbc_pkcs5_decrypt(const std::vector<unsigned char
 
 std::vector<unsigned char> des_cbc_pkcs5_encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key, const std::array<unsigned char, 8> &iv);
 
+std::vector<unsigned char> des3_cbc_pkcs5_decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 24> &key, const std::array<unsigned char, 8> &iv);
+
+std::vector<unsigned char> des3_cbc_pkcs5_encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 24> &key, const std::array<unsigned char, 8> &iv);
+
 #endif //TLS_PLAYGROUND_DES_HPP

@@ -128,3 +128,18 @@ TEST_CASE("des_cbc_pkcs5")
 	const std::vector<unsigned char> decrypted = des_cbc_pkcs5_decrypt(encrypted, key, iv);
 	REQUIRE(decrypted == task);
 }
+
+TEST_CASE("des3_cbc_pkcs5")
+{
+	auto task = GENERATE(
+			std::vector<unsigned char>{ 'a', 'b', 'c' },
+			std::vector<unsigned char>{ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' },
+			std::vector<unsigned char>{ '1', '2', '3', '4', '5', '6', '7', '8', '9' }
+	);
+	CAPTURE(task);
+	const auto key = std::array<unsigned char, 24>{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23 };
+	const auto iv = std::array<unsigned char, 8>{ 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x1a, 0x1b };
+	const std::vector<unsigned char> encrypted = des3_cbc_pkcs5_encrypt(task, key, iv);
+	const std::vector<unsigned char> decrypted = des3_cbc_pkcs5_decrypt(encrypted, key, iv);
+	REQUIRE(decrypted == task);
+}
