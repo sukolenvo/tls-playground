@@ -2,8 +2,8 @@
 // Created by Margo on 09.03.2024.
 //
 
-#ifndef TLS_PLAYGROUND_MAIN_HPP
-#define TLS_PLAYGROUND_MAIN_HPP
+#ifndef TLS_PLAYGROUND_DES_HPP
+#define TLS_PLAYGROUND_DES_HPP
 
 #include <array>
 #include <stdexcept>
@@ -56,16 +56,16 @@ void schedule_key_rotl(std::array<unsigned char, 7> &key);
 
 void schedule_key_rotr(std::array<unsigned char, 7> &key);
 
-std::array<std::array<unsigned char, 6>, 16> build_encrypt_schedule_key(const std::array<unsigned char, 8> &key);
-
-std::array<std::array<unsigned char, 6>, 16> build_decrypt_schedule_key(const std::array<unsigned char, 8> &key);
-
 void des_block_process(const std::array<unsigned char, 8> &input_block,
 		std::array<unsigned char, 8> &output_block,
 		std::array<std::array<unsigned char, 6>, 16> schedule_keys);
 
-std::vector<unsigned char> decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key);
+std::vector<unsigned char> des_ecb_pkcs5_decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key);
 
-std::vector<unsigned char> encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key);
+std::vector<unsigned char> des_ecb_pkcs5_encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key);
 
-#endif //TLS_PLAYGROUND_MAIN_HPP
+std::vector<unsigned char> des_cbc_pkcs5_decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key, const std::array<unsigned char, 8> &iv);
+
+std::vector<unsigned char> des_cbc_pkcs5_encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key, const std::array<unsigned char, 8> &iv);
+
+#endif //TLS_PLAYGROUND_DES_HPP

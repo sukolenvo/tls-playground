@@ -4,7 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
-#include "main.hpp"
+#include "des.hpp"
 
 
 TEST_CASE("set-bit")
@@ -100,7 +100,7 @@ TEST_CASE("schedule_key_rotr")
 	REQUIRE(copy == task);
 }
 
-TEST_CASE("encrypt_decrypt")
+TEST_CASE("des_ecb_pkcs5")
 {
 	auto task = GENERATE(
 			std::vector<unsigned char>{ 'a', 'b', 'c' },
@@ -109,7 +109,22 @@ TEST_CASE("encrypt_decrypt")
 	);
 	CAPTURE(task);
 	const auto key = std::array<unsigned char, 8>{ 1, 2, 3, 4, 5, 6, 7, 8 };
-	const std::vector<unsigned char> encrypted = encrypt(task, key);
-	const std::vector<unsigned char> decrypted = decrypt(encrypted, key);
+	const std::vector<unsigned char> encrypted = des_ecb_pkcs5_encrypt(task, key);
+	const std::vector<unsigned char> decrypted = des_ecb_pkcs5_decrypt(encrypted, key);
+	REQUIRE(decrypted == task);
+}
+
+TEST_CASE("des_cbc_pkcs5")
+{
+	auto task = GENERATE(
+			std::vector<unsigned char>{ 'a', 'b', 'c' },
+			std::vector<unsigned char>{ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' },
+			std::vector<unsigned char>{ '1', '2', '3', '4', '5', '6', '7', '8', '9' }
+	);
+	CAPTURE(task);
+	const auto key = std::array<unsigned char, 8>{ 1, 2, 3, 4, 5, 6, 7, 8 };
+	const auto iv = std::array<unsigned char, 8>{ 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x1a, 0x1b };
+	const std::vector<unsigned char> encrypted = des_cbc_pkcs5_encrypt(task, key, iv);
+	const std::vector<unsigned char> decrypted = des_cbc_pkcs5_decrypt(encrypted, key, iv);
 	REQUIRE(decrypted == task);
 }

@@ -1,6 +1,6 @@
 #include <algorithm>
 
-#include "main.hpp"
+#include "des.hpp"
 
 void schedule_key_rotl(std::array<unsigned char, 7> &key)
 {
@@ -214,7 +214,7 @@ void des_block_process(const std::array<unsigned char, 8> &input_block,
 	permute(output_block, input_cypher, final_permute_table);
 }
 
-std::vector<unsigned char> encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key)
+std::vector<unsigned char> des_ecb_pkcs5_encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key)
 {
 	std::vector<unsigned char> result{};
 	std::array<unsigned char, 8> input_block;
@@ -239,7 +239,7 @@ std::vector<unsigned char> encrypt(const std::vector<unsigned char> &data, const
 	return result;
 }
 
-std::vector<unsigned char> decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key)
+std::vector<unsigned char> des_ecb_pkcs5_decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key)
 {
 	if (data.empty() || data.size() % 8 != 0)
 	{
@@ -253,6 +253,75 @@ std::vector<unsigned char> decrypt(const std::vector<unsigned char> &data, const
 	{
 		std::copy_n(data.cbegin() + i, 8, input_block.begin());
 		des_block_process(input_block, output_block, schedule_keys);
+		std::copy_n(output_block.cbegin(), 8, std::back_inserter(result));
+	}
+	if (result.back() > 8 || result.back() < 1)
+	{
+		throw std::runtime_error("PKCS5 padding expected");
+	}
+	result.resize(result.size() - result.back());
+	return result;
+}
+
+std::vector<unsigned char> des_cbc_pkcs5_encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key, const std::array<unsigned char, 8> &iv)
+{
+	std::vector<unsigned char> result{};
+	std::array<unsigned char, 8> input_block;
+	std::array<unsigned char, 8> cypher_block = iv;
+	const auto schedule_keys = build_encrypt_schedule_key(key);
+	for (size_t i = 0; i <= data.size(); i += 8)
+	{
+		if (i + 8 < data.size())
+		{
+			std::copy_n(data.cbegin() + i, 8, input_block.begin());
+			std::transform(input_block.begin(), input_block.end(), cypher_block.cbegin(),
+					input_block.begin(),
+					[](const auto &left, const auto &right)
+					{
+						return left ^ right;
+					});
+			des_block_process(input_block, cypher_block, schedule_keys);
+			std::copy_n(cypher_block.cbegin(), 8, std::back_inserter(result));
+		}
+		else
+		{
+			input_block.fill(i + 8 - data.size());
+			std::copy_n(data.cbegin() + i, data.size() - i, input_block.begin());
+			std::transform(input_block.begin(), input_block.end(), cypher_block.cbegin(),
+					input_block.begin(),
+					[](const auto &left, const auto &right)
+					{
+						return left ^ right;
+					});
+			des_block_process(input_block, cypher_block, schedule_keys);
+			std::copy_n(cypher_block.cbegin(), 8, std::back_inserter(result));
+		}
+	}
+	return result;
+}
+
+std::vector<unsigned char> des_cbc_pkcs5_decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key, const std::array<unsigned char, 8> &iv)
+{
+	if (data.empty() || data.size() % 8 != 0)
+	{
+		throw std::runtime_error("Malformed cypher data");
+	}
+	std::vector<unsigned char> result{};
+	std::array<unsigned char, 8> input_block;
+	std::array<unsigned char, 8> output_block;
+	auto next_iv = iv;
+	const auto schedule_keys = build_decrypt_schedule_key(key);
+	for (size_t i = 0; i < data.size(); i += 8)
+	{
+		std::copy_n(data.cbegin() + i, 8, input_block.begin());
+		des_block_process(input_block, output_block, schedule_keys);
+		std::transform(output_block.begin(), output_block.end(), next_iv.cbegin(),
+				output_block.begin(),
+				[](const auto &left, const auto &right)
+				{
+					return left ^ right;
+				});
+		next_iv = input_block;
 		std::copy_n(output_block.cbegin(), 8, std::back_inserter(result));
 	}
 	if (result.back() > 8 || result.back() < 1)
