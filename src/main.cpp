@@ -14,6 +14,18 @@ void schedule_key_rotl(std::array<unsigned char, 7> &key)
 	key[6] = (0x7F & copy[6]) << 1 | (0x08 & copy[3]) >> 3;
 }
 
+void schedule_key_rotr(std::array<unsigned char, 7> &key)
+{
+	std::array<unsigned char, 7> copy = key;
+	key[0] = (0xFE & copy[0]) >> 1 | (0x10 & copy[3]) << 3;
+	key[1] = (0xFE & copy[1]) >> 1 | (0x01 & copy[0]) << 7;
+	key[2] = (0xFE & copy[2]) >> 1 | (0x01 & copy[1]) << 7;
+	key[3] = (0xEE & copy[3]) >> 1 | (0x01 & copy[2]) << 7 | (0x01 & copy[6]) << 3;
+	key[4] = (0xFE & copy[4]) >> 1 | (0x01 & copy[3]) << 7;
+	key[5] = (0xFE & copy[5]) >> 1 | (0x01 & copy[4]) << 7;
+	key[6] = (0xFE & copy[6]) >> 1 | (0x01 & copy[5]) << 7;
+}
+
 const auto schedule_key_permutation_table = std::array<unsigned int, 56>{
 		57, 49, 41, 33, 25, 17, 9, 1,
 		58, 50, 42, 34, 26, 18, 10, 2,
@@ -36,7 +48,7 @@ const auto schedule_key_reduce_table = std::array<unsigned int, 48>{
 		46, 42, 50, 36, 29, 32
 };
 
-std::array<std::array<unsigned char, 6>, 16> build_schedule_key(const std::array<unsigned char, 8> &key)
+std::array<std::array<unsigned char, 6>, 16> build_encrypt_schedule_key(const std::array<unsigned char, 8> &key)
 {
 	std::array<unsigned char, 7> permuted_key;
 	permute(permuted_key, key, schedule_key_permutation_table);
@@ -50,6 +62,24 @@ std::array<std::array<unsigned char, 6>, 16> build_schedule_key(const std::array
 			schedule_key_rotl(permuted_key);
 		}
 		permute(schedule_keys[round], permuted_key, schedule_key_reduce_table);
+	}
+	return schedule_keys;
+}
+
+std::array<std::array<unsigned char, 6>, 16> build_decrypt_schedule_key(const std::array<unsigned char, 8> &key)
+{
+	std::array<unsigned char, 7> permuted_key;
+	permute(permuted_key, key, schedule_key_permutation_table);
+	std::array<std::array<unsigned char, 6>, 16> schedule_keys{};
+	for (int round = 0; round < 16; round++)
+	{
+		permute(schedule_keys[round], permuted_key, schedule_key_reduce_table);
+		schedule_key_rotr(permuted_key);
+		if (!(round >= 14 || round == 7 || round == 0))
+		{
+			// Rotate twice except in rounds 1, 2, 9 & 16
+			schedule_key_rotr(permuted_key);
+		}
 	}
 	return schedule_keys;
 }
@@ -136,13 +166,12 @@ const auto initial_permute_table = std::array<unsigned int, 64>{
 		63, 55, 47, 39, 31, 23, 15, 7
 };
 
-void des_block_encrypt(const std::array<unsigned char, 8> &input_block,
+void des_block_process(const std::array<unsigned char, 8> &input_block,
 		std::array<unsigned char, 8> &output_block,
-		const std::array<unsigned char, 8> &key)
+		std::array<std::array<unsigned char, 6>, 16> schedule_keys)
 {
-	auto input_cypher = input_block;
-	permute(output_block, input_cypher, initial_permute_table);
-	const auto schedule_keys = build_schedule_key(key);
+	std::array<unsigned char, 8> input_cypher;
+	permute(input_cypher, input_block, initial_permute_table);
 	for (const auto &round_key: schedule_keys)
 	{
 		std::array<unsigned char, 6> expanded_block;
@@ -169,18 +198,67 @@ void des_block_encrypt(const std::array<unsigned char, 8> &input_block,
 				{
 					return left ^ right;
 				});
-		input_cypher[4] = input_cypher[0];
-		input_cypher[5] = input_cypher[1];
-		input_cypher[6] = input_cypher[2];
-		input_cypher[7] = input_cypher[3];
-		input_cypher[0] = sbox_permuted_block[0];
-		input_cypher[1] = sbox_permuted_block[1];
-		input_cypher[2] = sbox_permuted_block[2];
-		input_cypher[3] = sbox_permuted_block[3];
+		input_cypher[0] = input_cypher[4];
+		input_cypher[1] = input_cypher[5];
+		input_cypher[2] = input_cypher[6];
+		input_cypher[3] = input_cypher[7];
+		input_cypher[4] = sbox_permuted_block[0];
+		input_cypher[5] = sbox_permuted_block[1];
+		input_cypher[6] = sbox_permuted_block[2];
+		input_cypher[7] = sbox_permuted_block[3];
 	}
 	std::swap(input_cypher[4], input_cypher[0]);
 	std::swap(input_cypher[5], input_cypher[1]);
 	std::swap(input_cypher[6], input_cypher[2]);
 	std::swap(input_cypher[7], input_cypher[3]);
 	permute(output_block, input_cypher, final_permute_table);
+}
+
+std::vector<unsigned char> encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key)
+{
+	std::vector<unsigned char> result{};
+	std::array<unsigned char, 8> input_block;
+	std::array<unsigned char, 8> cypher_block;
+	const auto schedule_keys = build_encrypt_schedule_key(key);
+	for (size_t i = 0; i <= data.size(); i += 8)
+	{
+		if (i + 8 < data.size())
+		{
+			std::copy_n(data.cbegin() + i, 8, input_block.begin());
+			des_block_process(input_block, cypher_block, schedule_keys);
+			std::copy_n(cypher_block.cbegin(), 8, std::back_inserter(result));
+		}
+		else
+		{
+			input_block.fill(i + 8 - data.size());
+			std::copy_n(data.cbegin() + i, data.size() - i, input_block.begin());
+			des_block_process(input_block, cypher_block, schedule_keys);
+			std::copy_n(cypher_block.cbegin(), 8, std::back_inserter(result));
+		}
+	}
+	return result;
+}
+
+std::vector<unsigned char> decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key)
+{
+	if (data.empty() || data.size() % 8 != 0)
+	{
+		throw std::runtime_error("Malformed cypher data");
+	}
+	std::vector<unsigned char> result{};
+	std::array<unsigned char, 8> input_block;
+	std::array<unsigned char, 8> output_block;
+	const auto schedule_keys = build_decrypt_schedule_key(key);
+	for (size_t i = 0; i < data.size(); i += 8)
+	{
+		std::copy_n(data.cbegin() + i, 8, input_block.begin());
+		des_block_process(input_block, output_block, schedule_keys);
+		std::copy_n(output_block.cbegin(), 8, std::back_inserter(result));
+	}
+	if (result.back() > 8 || result.back() < 1)
+	{
+		throw std::runtime_error("PKCS5 padding expected");
+	}
+	result.resize(result.size() - result.back());
+	return result;
 }

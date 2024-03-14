@@ -54,10 +54,18 @@ void permute(std::array<unsigned char, len> &target,
 
 void schedule_key_rotl(std::array<unsigned char, 7> &key);
 
-std::array<std::array<unsigned char, 6>, 16> build_schedule_key(const std::array<unsigned char, 8> &key);
+void schedule_key_rotr(std::array<unsigned char, 7> &key);
 
-void des_block_encrypt(const std::array<unsigned char, 8> &input_block,
+std::array<std::array<unsigned char, 6>, 16> build_encrypt_schedule_key(const std::array<unsigned char, 8> &key);
+
+std::array<std::array<unsigned char, 6>, 16> build_decrypt_schedule_key(const std::array<unsigned char, 8> &key);
+
+void des_block_process(const std::array<unsigned char, 8> &input_block,
 		std::array<unsigned char, 8> &output_block,
-		const std::array<unsigned char, 8> &key);
+		std::array<std::array<unsigned char, 6>, 16> schedule_keys);
+
+std::vector<unsigned char> decrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key);
+
+std::vector<unsigned char> encrypt(const std::vector<unsigned char> &data, const std::array<unsigned char, 8> &key);
 
 #endif //TLS_PLAYGROUND_MAIN_HPP

@@ -9,47 +9,47 @@
 
 TEST_CASE("set-bit")
 {
-    auto task = GENERATE(
-            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 1, std::array<unsigned char, 2>{0xFF}),
-            std::make_tuple(std::array<unsigned char, 2>{0x0}, 1, std::array<unsigned char, 2>{0x80}),
-            std::make_tuple(std::array<unsigned char, 2>{0x0}, 2, std::array<unsigned char, 2>{0x40}),
-            std::make_tuple(std::array<unsigned char, 2>{0x0}, 4, std::array<unsigned char, 2>{0x10}),
-            std::make_tuple(std::array<unsigned char, 2>{0x0}, 8, std::array<unsigned char, 2>{0x01}),
-            std::make_tuple(std::array<unsigned char, 2>{0x0, 0x0}, 9, std::array<unsigned char, 2>{0x00, 0x80}),
-            std::make_tuple(std::array<unsigned char, 2>{0x0, 0x0}, 10, std::array<unsigned char, 2>{0x00, 0x40})
-    );
-    CAPTURE(std::get<0>(task), std::get<1>(task));
-    set_bit(std::get<0>(task), std::get<1>(task));
-    REQUIRE(std::get<0>(task) == std::get<2>(task));
+	auto task = GENERATE(
+			std::make_tuple(std::array<unsigned char, 2>{ 0xFF }, 1, std::array<unsigned char, 2>{ 0xFF }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0x0 }, 1, std::array<unsigned char, 2>{ 0x80 }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0x0 }, 2, std::array<unsigned char, 2>{ 0x40 }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0x0 }, 4, std::array<unsigned char, 2>{ 0x10 }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0x0 }, 8, std::array<unsigned char, 2>{ 0x01 }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0x0, 0x0 }, 9, std::array<unsigned char, 2>{ 0x00, 0x80 }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0x0, 0x0 }, 10, std::array<unsigned char, 2>{ 0x00, 0x40 })
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	set_bit(std::get<0>(task), std::get<1>(task));
+	REQUIRE(std::get<0>(task) == std::get<2>(task));
 }
 
 TEST_CASE("clear-bit")
 {
-    auto task = GENERATE(
-            std::make_tuple(std::array<unsigned char, 2>{0x00}, 1, std::array<unsigned char, 2>{0x0}),
-            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 1, std::array<unsigned char, 2>{0x7F}),
-            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 2, std::array<unsigned char, 2>{0xBF}),
-            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 4, std::array<unsigned char, 2>{0xEF}),
-            std::make_tuple(std::array<unsigned char, 2>{0xFF}, 8, std::array<unsigned char, 2>{0xFE}),
-            std::make_tuple(std::array<unsigned char, 2>{0xFF, 0xFF}, 9, std::array<unsigned char, 2>{0xFF, 0x7F}),
-            std::make_tuple(std::array<unsigned char, 2>{0xFF, 0xFF}, 10, std::array<unsigned char, 2>{0xFF, 0xBF})
-    );
-    CAPTURE(std::get<0>(task), std::get<1>(task));
-    clear_bit(std::get<0>(task), std::get<1>(task));
-    REQUIRE(std::get<0>(task) == std::get<2>(task));
+	auto task = GENERATE(
+			std::make_tuple(std::array<unsigned char, 2>{ 0x00 }, 1, std::array<unsigned char, 2>{ 0x0 }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0xFF }, 1, std::array<unsigned char, 2>{ 0x7F }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0xFF }, 2, std::array<unsigned char, 2>{ 0xBF }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0xFF }, 4, std::array<unsigned char, 2>{ 0xEF }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0xFF }, 8, std::array<unsigned char, 2>{ 0xFE }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0xFF, 0xFF }, 9, std::array<unsigned char, 2>{ 0xFF, 0x7F }),
+			std::make_tuple(std::array<unsigned char, 2>{ 0xFF, 0xFF }, 10, std::array<unsigned char, 2>{ 0xFF, 0xBF })
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	clear_bit(std::get<0>(task), std::get<1>(task));
+	REQUIRE(std::get<0>(task) == std::get<2>(task));
 }
 
 TEST_CASE("initial_permute")
 {
 	auto task = GENERATE(
-		std::make_pair(std::vector<unsigned char>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-					   std::array<unsigned char, 8>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
-		std::make_pair(std::vector<unsigned char>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
-					   std::array<unsigned char, 8>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}),
-		std::make_pair(std::vector<unsigned char>{0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40},
-					   std::array<unsigned char, 8>{0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
-		std::make_pair(std::vector<unsigned char>{0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50},
-					   std::array<unsigned char, 8>{0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
+			std::make_pair(std::vector<unsigned char>{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+					std::array<unsigned char, 8>{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }),
+			std::make_pair(std::vector<unsigned char>{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF },
+					std::array<unsigned char, 8>{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }),
+			std::make_pair(std::vector<unsigned char>{ 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40 },
+					std::array<unsigned char, 8>{ 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }),
+			std::make_pair(std::vector<unsigned char>{ 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50 },
+					std::array<unsigned char, 8>{ 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 })
 	);
 	CAPTURE(task.first);
 	std::array<unsigned char, 8> target;
@@ -70,16 +70,46 @@ TEST_CASE("initial_permute")
 TEST_CASE("schedule_key_rotl")
 {
 	auto task = GENERATE(
-		std::make_pair(std::array<unsigned char, 7>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-					   std::array<unsigned char, 7>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
-		std::make_pair(std::array<unsigned char, 7>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
-					   std::array<unsigned char, 7>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}),
-		std::make_pair(std::array<unsigned char, 7>{0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA},
-					   std::array<unsigned char, 7>{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55}),
-		std::make_pair(std::array<unsigned char, 7>{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55},
-					   std::array<unsigned char, 7>{0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA})
+			std::make_pair(std::array<unsigned char, 7>{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+					std::array<unsigned char, 7>{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }),
+			std::make_pair(std::array<unsigned char, 7>{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF },
+					std::array<unsigned char, 7>{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }),
+			std::make_pair(std::array<unsigned char, 7>{ 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA },
+					std::array<unsigned char, 7>{ 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 }),
+			std::make_pair(std::array<unsigned char, 7>{ 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 },
+					std::array<unsigned char, 7>{ 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA })
 	);
 	CAPTURE(task.first);
 	schedule_key_rotl(task.first);
 	REQUIRE(task.first == task.second);
+}
+
+TEST_CASE("schedule_key_rotr")
+{
+	auto task = GENERATE(
+			std::array<unsigned char, 7>{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+			std::array<unsigned char, 7>{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF },
+			std::array<unsigned char, 7>{ 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA },
+			std::array<unsigned char, 7>{ 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 },
+			std::array<unsigned char, 7>{ 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd }
+	);
+	CAPTURE(task);
+	auto copy = task;
+	schedule_key_rotl(copy);
+	schedule_key_rotr(copy);
+	REQUIRE(copy == task);
+}
+
+TEST_CASE("encrypt_decrypt")
+{
+	auto task = GENERATE(
+			std::vector<unsigned char>{ 'a', 'b', 'c' },
+			std::vector<unsigned char>{ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' },
+			std::vector<unsigned char>{ '1', '2', '3', '4', '5', '6', '7', '8', '9' }
+	);
+	CAPTURE(task);
+	const auto key = std::array<unsigned char, 8>{ 1, 2, 3, 4, 5, 6, 7, 8 };
+	const std::vector<unsigned char> encrypted = encrypt(task, key);
+	const std::vector<unsigned char> decrypted = decrypt(encrypted, key);
+	REQUIRE(decrypted == task);
 }
