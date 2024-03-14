@@ -1,7 +1,3 @@
-//
-// Created by Margo on 09.03.2024.
-//
-
 #ifndef TLS_PLAYGROUND_DES_HPP
 #define TLS_PLAYGROUND_DES_HPP
 
