@@ -13,6 +13,7 @@ public:
 	friend BigNumber operator+(const BigNumber &first, const BigNumber &second);
 	friend BigNumber operator-(const BigNumber &first, const BigNumber &second);
 	friend BigNumber operator*(const BigNumber &first, const BigNumber &second);
+	friend BigNumber operator&(const BigNumber &first, const BigNumber &second);
 	friend BigNumber& operator<<=(BigNumber &number, size_t pos);
 	friend BigNumber& operator>>=(BigNumber &number, size_t pos);
 	friend BigNumber operator%(const BigNumber &first, const BigNumber &second);
@@ -23,5 +24,7 @@ public:
 private:
 	std::vector<unsigned char> state;
 };
+
+const BigNumber ZERO = BigNumber({});
 
 #endif //TLS_PLAYGROUND_MATH_HPP

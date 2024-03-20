@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <stdexcept>
 #include <ranges>
 
@@ -223,4 +224,16 @@ bool operator<(const BigNumber &first, const BigNumber &second)
 bool operator>(const BigNumber &first, const BigNumber &second)
 {
 	return !(first == second || first < second);
+}
+
+BigNumber operator&(const BigNumber &first, const BigNumber &second)
+{
+	std::vector<unsigned char> result(std::max(first.state.size(), second.state.size()), 0);
+	auto rI = result.rbegin();
+	for (auto fI = first.state.rbegin(), sI = second.state.rbegin(); fI != first.state.rend() && sI != second.state.rend(); ++fI, ++sI, ++rI)
+	{
+		*rI = *fI & *sI;
+	}
+	remove_trailing_zeros(result);
+	return BigNumber(result);
 }
