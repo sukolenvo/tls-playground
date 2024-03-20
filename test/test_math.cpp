@@ -36,3 +36,28 @@ TEST_CASE("subtract")
 	REQUIRE(sum - BigNumber(std::get<0>(task)) == BigNumber(std::get<1>(task)));
 	REQUIRE(sum - BigNumber(std::get<1>(task)) == BigNumber(std::get<0>(task)));
 }
+
+TEST_CASE("shift left assign")
+{
+	auto task = GENERATE(
+			std::make_pair(std::vector<unsigned char>{ 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0x00 },
+					std::vector<unsigned char>{ 0x01, 0xFD, 0xB9, 0x75,0x30, 0xEC, 0xA8, 0x64, 0x20, 0x00 })
+	);
+	CAPTURE(std::get<0>(task));
+	BigNumber value{std::get<0>(task)};
+	value <<= 1;
+	REQUIRE(value == BigNumber{std::get<1>(task)});
+}
+
+TEST_CASE("multiply")
+{
+	auto task = GENERATE(
+			std::make_tuple(std::vector<unsigned char>{ 0x0A, 0x3F, 0x87 }, // 671623
+					std::vector<unsigned char>{ 0x4a, 0x07 }, // 18951
+					std::vector<unsigned char>{ 0x02, 0xf6, 0xa4, 0xc2, 0xb1 } // 12727927473
+			)
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	auto result = BigNumber{ std::get<0>(task)} * BigNumber{std::get<1>(task)};
+	REQUIRE(result == BigNumber{ std::get<2>(task) });
+}

@@ -12,6 +12,8 @@ public:
 
 	friend BigNumber operator+(const BigNumber &first, const BigNumber &second);
 	friend BigNumber operator-(const BigNumber &first, const BigNumber &second);
+	friend BigNumber operator*(const BigNumber &first, const BigNumber &second);
+	friend BigNumber& operator<<=(BigNumber &number, size_t pos);
 	auto operator<=>(const BigNumber &other) const = default;
 	friend std::ostream& operator << ( std::ostream& os, BigNumber const& value );
 private:
