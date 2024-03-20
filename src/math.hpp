@@ -14,7 +14,11 @@ public:
 	friend BigNumber operator-(const BigNumber &first, const BigNumber &second);
 	friend BigNumber operator*(const BigNumber &first, const BigNumber &second);
 	friend BigNumber& operator<<=(BigNumber &number, size_t pos);
-	auto operator<=>(const BigNumber &other) const = default;
+	friend BigNumber& operator>>=(BigNumber &number, size_t pos);
+	friend BigNumber operator%(const BigNumber &first, const BigNumber &second);
+	friend bool operator<(const BigNumber &first, const BigNumber &second);
+	friend bool operator>(const BigNumber &first, const BigNumber &second);
+	bool operator==(const BigNumber &other) const = default;
 	friend std::ostream& operator << ( std::ostream& os, BigNumber const& value );
 private:
 	std::vector<unsigned char> state;

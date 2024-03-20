@@ -49,6 +49,21 @@ BigNumber operator+(const BigNumber &first, const BigNumber &second)
 	return BigNumber(add(first.state, second.state));
 }
 
+void remove_trailing_zeros(std::vector<unsigned char> &state)
+{
+	if (state.empty())
+	{
+		return;
+	}
+	if (state.front() == 0) {
+		auto zeros = state.cbegin();
+		while (zeros != state.cend() && *zeros == 0) {
+			++zeros;
+		}
+		state.erase(state.cbegin(), zeros);
+	}
+}
+
 BigNumber operator-(const BigNumber &first, const BigNumber &second)
 {
 	auto result = first.state;
@@ -77,13 +92,7 @@ BigNumber operator-(const BigNumber &first, const BigNumber &second)
 	if (borrow) {
 		throw std::runtime_error("negative result is not supported");
 	}
-	if (result.front() == 0) {
-		auto zeros = result.cbegin();
-		while (zeros != result.cend() && *zeros == 0) {
-			++zeros;
-		}
-		result.erase(result.cbegin(), zeros);
-	}
+	remove_trailing_zeros(result);
 	return BigNumber(result);
 }
 
@@ -116,9 +125,16 @@ BigNumber operator*(const BigNumber &first, const BigNumber &second)
 
 BigNumber &operator<<=(BigNumber &number, size_t pos)
 {
-	if (pos > 8) {
-		throw std::runtime_error("Pos over 8 is not supported");
+	if (number.state.empty())
+	{
+		return number;
 	}
+	if (pos == 0)
+	{
+		return number;
+	}
+	number.state.insert(number.state.cend(), pos / 8, 0);
+	pos %= 8;
 	unsigned char carry = 0;
 	for (auto &value : std::ranges::reverse_view(number.state))
 	{
@@ -131,4 +147,80 @@ BigNumber &operator<<=(BigNumber &number, size_t pos)
 		number.state.insert(number.state.cbegin(), carry);
 	}
 	return number;
+}
+
+BigNumber &operator>>=(BigNumber &number, size_t pos)
+{
+	if (number.state.empty())
+	{
+		return number;
+	}
+	if (pos > 8)
+	{
+		number.state.erase(number.state.end() - pos / 8lu, number.state.end());
+		pos %= 8;
+	}
+	if (pos == 0)
+	{
+		return number;
+	}
+	unsigned char carry = 0;
+	unsigned char carry_mask = ~(0xFF << pos);
+	for (auto &value : number.state)
+	{
+		unsigned char new_value = (value >> pos) + carry;
+		carry = (value & carry_mask) << (8 - pos);
+		value = new_value;
+	}
+	remove_trailing_zeros(number.state);
+	return number;
+}
+
+BigNumber operator%(const BigNumber &first, const BigNumber &second)
+{
+	if (first.state.empty() || second.state.empty())
+	{
+		return BigNumber({});
+	}
+	BigNumber divisor = second;
+	BigNumber reminder = first;
+	int bit_size = 0;
+	while(divisor < reminder)
+	{
+		divisor <<= 1;
+		++bit_size;
+	}
+	while (bit_size >= 0)
+	{
+		if (reminder == divisor)
+		{
+			return BigNumber({});
+		}
+		if (reminder > divisor) {
+			reminder = reminder - divisor;
+		}
+		divisor >>= 1;
+		--bit_size;
+	}
+	return reminder;
+}
+
+bool operator<(const BigNumber &first, const BigNumber &second)
+{
+	if (first.state.size() != second.state.size()) {
+		return first.state.size() < second.state.size();
+	}
+	for (size_t i = 0; i < first.state.size(); ++i)
+	{
+		if (first.state.at(i) != second.state.at(i))
+		{
+			return first.state.at(i) < second.state.at(i);
+		}
+	}
+	return false;
+}
+
+bool operator>(const BigNumber &first, const BigNumber &second)
+{
+	return !(first == second || first < second);
 }

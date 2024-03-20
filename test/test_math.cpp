@@ -40,13 +40,63 @@ TEST_CASE("subtract")
 TEST_CASE("shift left assign")
 {
 	auto task = GENERATE(
-			std::make_pair(std::vector<unsigned char>{ 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0x00 },
-					std::vector<unsigned char>{ 0x01, 0xFD, 0xB9, 0x75,0x30, 0xEC, 0xA8, 0x64, 0x20, 0x00 })
+			std::make_tuple(std::vector<unsigned char>{ 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0x00 },
+					1,
+					std::vector<unsigned char>{ 0x01, 0xFD, 0xB9, 0x75, 0x30, 0xEC, 0xA8, 0x64, 0x20, 0x00 }),
+			std::make_tuple(std::vector<unsigned char>{ },
+					20,
+					std::vector<unsigned char>{ }),
+			std::make_tuple(std::vector<unsigned char>{ 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0x00 },
+					17,
+					std::vector<unsigned char>{ 0x01, 0xFD, 0xB9, 0x75, 0x30, 0xEC, 0xA8, 0x64, 0x20, 0x00, 0x00, 0x00 })
 	);
-	CAPTURE(std::get<0>(task));
-	BigNumber value{std::get<0>(task)};
-	value <<= 1;
-	REQUIRE(value == BigNumber{std::get<1>(task)});
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	BigNumber value{ std::get<0>(task) };
+	value <<= std::get<1>(task);
+	REQUIRE(value == BigNumber{ std::get<2>(task) });
+}
+
+TEST_CASE("compare")
+{
+	auto task = GENERATE(
+			std::make_tuple(std::vector<unsigned char>{ }, std::vector<unsigned char>{ 0x01 }, true),
+			std::make_tuple(std::vector<unsigned char>{ }, std::vector<unsigned char>{ 0x01, 0x00 }, true),
+			std::make_tuple(std::vector<unsigned char>{ }, std::vector<unsigned char>{ }, false),
+			std::make_tuple(std::vector<unsigned char>{ 0x01 }, std::vector<unsigned char>{ }, false),
+			std::make_tuple(std::vector<unsigned char>{ 0x01, 0x00 }, std::vector<unsigned char>{ }, false),
+			std::make_tuple(std::vector<unsigned char>{ 0x01, 0x00 }, std::vector<unsigned char>{ 0x01, 0x00 }, false),
+			std::make_tuple(std::vector<unsigned char>{ 0x02, 0x00 }, std::vector<unsigned char>{ 0x01, 0x00 }, false),
+			std::make_tuple(std::vector<unsigned char>{ 0x01, 0x00 }, std::vector<unsigned char>{ 0x02, 0x00 }, true),
+			std::make_tuple(std::vector<unsigned char>{ 0x01, 0x10 }, std::vector<unsigned char>{ 0x01, 0x20 }, true),
+			std::make_tuple(std::vector<unsigned char>{ 0xFF }, std::vector<unsigned char>{ 0x01, 0x00 }, true)
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	BigNumber first{ std::get<0>(task) };
+	BigNumber second{ std::get<1>(task) };
+	REQUIRE((first < second) == std::get<2>(task));
+	if (std::get<2>(task))
+	{
+		REQUIRE((first > second) == false);
+	}
+}
+
+TEST_CASE("modulus")
+{
+	auto task = GENERATE(
+			std::make_tuple(std::vector<unsigned char>{ }, std::vector<unsigned char>{}, std::vector<unsigned char>{}),
+			std::make_tuple(std::vector<unsigned char>{ }, std::vector<unsigned char>{ 0x01}, std::vector<unsigned char>{}),
+			std::make_tuple(std::vector<unsigned char>{ 0x01, 0xFD, 0xB9, 0x75, 0x30, 0xEC, 0xA8, 0x64, 0x20, 0x00, 0x00, 0x00 },
+					std::vector<unsigned char>{ 0x01}, std::vector<unsigned char>{}),
+			std::make_tuple(std::vector<unsigned char>{ 0x01, 0xFD, 0xB9, 0x75, 0x30, 0xEC, 0xA8, 0x64, 0x20, 0x00, 0x00, 0x00 }, std::vector<unsigned char>{ 0x02},
+					std::vector<unsigned char>{}),
+			std::make_tuple(std::vector<unsigned char>{ 0x1E, 0x92, 0xA6, 0x91 }, // 512927377
+					std::vector<unsigned char>{ 0x01, 0xEF, 0x30, 0xEB}, // 32452843
+					std::vector<unsigned char>{ 0x01, 0x8E, 0xC8, 0xCC }) // 26134732
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	const BigNumber first{ std::get<0>(task) };
+	const BigNumber second{ std::get<1>(task) };
+	REQUIRE(first % second == BigNumber(std::get<2>(task)));
 }
 
 TEST_CASE("multiply")
