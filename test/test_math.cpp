@@ -22,6 +22,34 @@ TEST_CASE("add")
 	REQUIRE(result == BigNumber(std::get<2>(task)));
 }
 
+TEST_CASE("add_signed")
+{
+	auto task =
+			GENERATE(
+					std::make_tuple(BigNumber(std::vector<unsigned char>{ 0xFF }, Sign::PLUS),
+							BigNumber(std::vector<unsigned char>{ 0xFF }, Sign::MINUS),
+							BigNumber(std::vector<unsigned char>{})),
+					std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::PLUS),
+							BigNumber(std::vector<unsigned char>{ 0x05 }, Sign::MINUS),
+							BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::MINUS)),
+					std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x05 }, Sign::PLUS),
+							BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS),
+							BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::PLUS)),
+					std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS),
+							BigNumber(std::vector<unsigned char>{ 0x05 }, Sign::PLUS),
+							BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::PLUS)),
+					std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x05 }, Sign::MINUS),
+							BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::PLUS),
+							BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::MINUS)),
+					std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x05 }, Sign::MINUS),
+							BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS),
+							BigNumber(std::vector<unsigned char>{ 0x07 }, Sign::MINUS))
+			);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	auto result = std::get<0>(task) + std::get<1>(task);
+	REQUIRE(result == std::get<2>(task));
+}
+
 TEST_CASE("subtract")
 {
 	auto task = GENERATE(

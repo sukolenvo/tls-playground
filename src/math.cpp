@@ -4,6 +4,8 @@
 
 #include "math.hpp"
 
+using Magnitude = std::vector<unsigned char>;
+
 std::vector<unsigned char> add(const std::vector<unsigned char> &first, const std::vector<unsigned char> &second)
 {
 	auto result = first;
@@ -35,52 +37,67 @@ std::vector<unsigned char> add(const std::vector<unsigned char> &first, const st
 }
 
 
-BigNumber::BigNumber(const std::vector<unsigned char> &state) : state(state)
+BigNumber::BigNumber(const std::vector<unsigned char> &state) : magnitude(state), sign(Sign::PLUS)
 {
 
 }
 
-BigNumber::BigNumber(std::vector<unsigned char> &&state) : state(state)
+BigNumber::BigNumber(std::vector<unsigned char> &&state) : magnitude(state), sign(Sign::PLUS)
 {
 
 }
 
-BigNumber operator+(const BigNumber &first, const BigNumber &second)
+BigNumber::BigNumber(std::vector<unsigned char> &&state, Sign sign) : magnitude(state), sign(sign)
 {
-	return BigNumber(add(first.state, second.state));
+
 }
 
-void remove_trailing_zeros(std::vector<unsigned char> &state)
+int compare_magnitudes(const Magnitude &first, const Magnitude &second)
 {
-	if (state.empty())
+	if (first.size() != second.size()) {
+		return first.size() < second.size() ? - 1 : 1;
+	}
+	for (size_t i = 0; i < first.size(); ++i)
+	{
+		if (first.at(i) != second.at(i))
+		{
+			return first.at(i) < second.at(i) ? -1 : 1;
+		}
+	}
+	return 0;
+}
+
+void remove_trailing_zeros(Magnitude &magnitude)
+{
+	if (magnitude.empty())
 	{
 		return;
 	}
-	if (state.front() == 0) {
-		auto zeros = state.cbegin();
-		while (zeros != state.cend() && *zeros == 0) {
+	if (magnitude.front() == 0) {
+		auto zeros = magnitude.cbegin();
+		while (zeros != magnitude.cend() && *zeros == 0) {
 			++zeros;
 		}
-		state.erase(state.cbegin(), zeros);
+		magnitude.erase(magnitude.cbegin(), zeros);
 	}
 }
 
-BigNumber operator-(const BigNumber &first, const BigNumber &second)
+Magnitude subtract_magnitudes(const Magnitude &first, const Magnitude &second)
 {
-	auto result = first.state;
-	if (second.state.empty()) {
-		return BigNumber(result);
+	auto result = first;
+	if (second.empty()) {
+		return result;
 	}
 	auto resultIterator = result.rbegin();
-	auto secondIterator = second.state.rbegin();
+	auto secondIterator = second.rbegin();
 	bool borrow = false;
 	while (resultIterator != result.rend())
 	{
-		if (!borrow && secondIterator == second.state.rend())
+		if (!borrow && secondIterator == second.rend())
 		{
 			break;
 		}
-		int value = *resultIterator - (secondIterator == second.state.rend() ? 0 : *secondIterator++) - (borrow ? 1 : 0);
+		int value = *resultIterator - (secondIterator == second.rend() ? 0 : *secondIterator++) - (borrow ? 1 : 0);
 		if (value < 0) {
 			borrow = true;
 			value += 0x100;
@@ -94,12 +111,31 @@ BigNumber operator-(const BigNumber &first, const BigNumber &second)
 		throw std::runtime_error("negative result is not supported");
 	}
 	remove_trailing_zeros(result);
-	return BigNumber(result);
+	return result;
 }
 
-std::ostream& operator << ( std::ostream& os, BigNumber const& value ) {
+BigNumber operator+(const BigNumber &first, const BigNumber &second)
+{
+	if (first.sign == second.sign)
+	{
+		return { add(first.magnitude, second.magnitude), first.sign };
+	}
+	if (compare_magnitudes(first.magnitude, second.magnitude) > 0)
+	{
+		return { subtract_magnitudes(first.magnitude, second.magnitude), first.sign };
+	}
+	return { subtract_magnitudes(second.magnitude, first.magnitude), second.sign };
+}
+
+BigNumber operator-(const BigNumber &first, const BigNumber &second)
+{
+	return BigNumber(subtract_magnitudes(first.magnitude, second.magnitude));
+}
+
+std::ostream& operator<<( std::ostream& os, BigNumber const& value ) {
+	os << (value.sign == Sign::PLUS ? '+' : '-');
 	os << "BigNumber{";
-	for (const auto &item : value.state)
+	for (const auto &item : value.magnitude)
 	{
 		os << " " << item;
 	}
@@ -110,7 +146,7 @@ BigNumber operator*(const BigNumber &first, const BigNumber &second)
 {
 	BigNumber result{{}};
 	auto operand = first;
-	for (auto &value : std::ranges::reverse_view(second.state))
+	for (auto &value : std::ranges::reverse_view(second.magnitude))
 	{
 		for (unsigned char mask = 0x01; mask != 0; mask <<= 1)
 		{
@@ -126,7 +162,7 @@ BigNumber operator*(const BigNumber &first, const BigNumber &second)
 
 BigNumber &operator<<=(BigNumber &number, size_t pos)
 {
-	if (number.state.empty())
+	if (number.magnitude.empty())
 	{
 		return number;
 	}
@@ -134,10 +170,10 @@ BigNumber &operator<<=(BigNumber &number, size_t pos)
 	{
 		return number;
 	}
-	number.state.insert(number.state.cend(), pos / 8, 0);
+	number.magnitude.insert(number.magnitude.cend(), pos / 8, 0);
 	pos %= 8;
 	unsigned char carry = 0;
-	for (auto &value : std::ranges::reverse_view(number.state))
+	for (auto &value : std::ranges::reverse_view(number.magnitude))
 	{
 		int result = (value << pos) + carry;
 		value = result & 0xFF;
@@ -145,20 +181,20 @@ BigNumber &operator<<=(BigNumber &number, size_t pos)
 	}
 	if (carry > 0)
 	{
-		number.state.insert(number.state.cbegin(), carry);
+		number.magnitude.insert(number.magnitude.cbegin(), carry);
 	}
 	return number;
 }
 
 BigNumber &operator>>=(BigNumber &number, size_t pos)
 {
-	if (number.state.empty())
+	if (number.magnitude.empty())
 	{
 		return number;
 	}
 	if (pos > 8)
 	{
-		number.state.erase(number.state.end() - pos / 8lu, number.state.end());
+		number.magnitude.erase(number.magnitude.end() - pos / 8lu, number.magnitude.end());
 		pos %= 8;
 	}
 	if (pos == 0)
@@ -167,19 +203,19 @@ BigNumber &operator>>=(BigNumber &number, size_t pos)
 	}
 	unsigned char carry = 0;
 	unsigned char carry_mask = ~(0xFF << pos);
-	for (auto &value : number.state)
+	for (auto &value : number.magnitude)
 	{
 		unsigned char new_value = (value >> pos) + carry;
 		carry = (value & carry_mask) << (8 - pos);
 		value = new_value;
 	}
-	remove_trailing_zeros(number.state);
+	remove_trailing_zeros(number.magnitude);
 	return number;
 }
 
 BigNumber operator%(const BigNumber &first, const BigNumber &second)
 {
-	if (first.state.empty() || second.state.empty())
+	if (first.magnitude.empty() || second.magnitude.empty())
 	{
 		return BigNumber({});
 	}
@@ -208,17 +244,7 @@ BigNumber operator%(const BigNumber &first, const BigNumber &second)
 
 bool operator<(const BigNumber &first, const BigNumber &second)
 {
-	if (first.state.size() != second.state.size()) {
-		return first.state.size() < second.state.size();
-	}
-	for (size_t i = 0; i < first.state.size(); ++i)
-	{
-		if (first.state.at(i) != second.state.at(i))
-		{
-			return first.state.at(i) < second.state.at(i);
-		}
-	}
-	return false;
+	return compare_magnitudes(first.magnitude, second.magnitude) < 0;
 }
 
 bool operator>(const BigNumber &first, const BigNumber &second)
@@ -228,9 +254,9 @@ bool operator>(const BigNumber &first, const BigNumber &second)
 
 BigNumber operator&(const BigNumber &first, const BigNumber &second)
 {
-	std::vector<unsigned char> result(std::max(first.state.size(), second.state.size()), 0);
+	std::vector<unsigned char> result(std::max(first.magnitude.size(), second.magnitude.size()), 0);
 	auto rI = result.rbegin();
-	for (auto fI = first.state.rbegin(), sI = second.state.rbegin(); fI != first.state.rend() && sI != second.state.rend(); ++fI, ++sI, ++rI)
+	for (auto fI = first.magnitude.rbegin(), sI = second.magnitude.rbegin(); fI != first.magnitude.rend() && sI != second.magnitude.rend(); ++fI, ++sI, ++rI)
 	{
 		*rI = *fI & *sI;
 	}
@@ -240,16 +266,25 @@ BigNumber operator&(const BigNumber &first, const BigNumber &second)
 
 size_t BigNumber::bit_length() const
 {
-	if (state.empty())
+	if (magnitude.empty())
 	{
 		return 0;
 	}
 	int first_byte_size = 0;
-	for (unsigned char mask = 0x01; mask <= state.at(0) && mask != 0; mask <<= 1, first_byte_size++);
-	return (state.size() - 1) * 8 + first_byte_size;
+	for (unsigned char mask = 0x01; mask <= magnitude.at(0) && mask != 0; mask <<= 1, first_byte_size++);
+	return (magnitude.size() - 1) * 8 + first_byte_size;
 }
 
 std::vector<unsigned char> BigNumber::data()
 {
-	return state;
+	return magnitude;
+}
+
+bool BigNumber::operator==(const BigNumber &other) const
+{
+	if (magnitude != other.magnitude)
+	{
+		return false;
+	}
+	return magnitude.empty() || sign == other.sign;
 }

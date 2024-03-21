@@ -4,11 +4,17 @@
 #include <ostream>
 #include <vector>
 
+enum class Sign
+{
+	PLUS, MINUS
+};
+
 class BigNumber
 {
 public:
 	explicit BigNumber(const std::vector<unsigned char> &state);
 	explicit BigNumber(std::vector<unsigned char> &&state);
+	BigNumber(std::vector<unsigned char> &&state, Sign sign);
 
 	friend BigNumber operator+(const BigNumber &first, const BigNumber &second);
 	friend BigNumber operator-(const BigNumber &first, const BigNumber &second);
@@ -19,13 +25,14 @@ public:
 	friend BigNumber operator%(const BigNumber &first, const BigNumber &second);
 	friend bool operator<(const BigNumber &first, const BigNumber &second);
 	friend bool operator>(const BigNumber &first, const BigNumber &second);
-	bool operator==(const BigNumber &other) const = default;
+	bool operator==(const BigNumber &other) const;
 	friend std::ostream& operator << ( std::ostream& os, BigNumber const& value );
 
 	[[ nodiscard ]] size_t bit_length() const;
 	std::vector<unsigned char> data();
 private:
-	std::vector<unsigned char> state;
+	std::vector<unsigned char> magnitude;
+	Sign sign;
 };
 
 const BigNumber ZERO = BigNumber({});
