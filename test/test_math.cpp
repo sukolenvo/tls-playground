@@ -111,3 +111,25 @@ TEST_CASE("multiply")
 	auto result = BigNumber{ std::get<0>(task)} * BigNumber{std::get<1>(task)};
 	REQUIRE(result == BigNumber{ std::get<2>(task) });
 }
+
+TEST_CASE("bit_length")
+{
+	auto task = GENERATE(
+			std::make_pair(std::vector<unsigned char>{  }, 0),
+			std::make_pair(std::vector<unsigned char>{ 0x01 }, 1),
+			std::make_pair(std::vector<unsigned char>{ 0x02 }, 2),
+			std::make_pair(std::vector<unsigned char>{ 0x03 }, 2),
+			std::make_pair(std::vector<unsigned char>{ 0x04 }, 3),
+			std::make_pair(std::vector<unsigned char>{ 0x08 }, 4),
+			std::make_pair(std::vector<unsigned char>{ 0x0F }, 4),
+			std::make_pair(std::vector<unsigned char>{ 0x10 }, 5),
+			std::make_pair(std::vector<unsigned char>{ 0x11 }, 5),
+			std::make_pair(std::vector<unsigned char>{ 0x21 }, 6),
+			std::make_pair(std::vector<unsigned char>{ 0x41 }, 7),
+			std::make_pair(std::vector<unsigned char>{ 0x80 }, 8),
+			std::make_pair(std::vector<unsigned char>{ 0xFF }, 8),
+			std::make_pair(std::vector<unsigned char>{ 0x0F, 0x0, 0x0 }, 20)
+	);
+	CAPTURE(std::get<0>(task));
+	REQUIRE(BigNumber{ std::get<0>(task)}.bit_length() == std::get<1>(task));
+}

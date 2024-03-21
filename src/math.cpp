@@ -237,3 +237,19 @@ BigNumber operator&(const BigNumber &first, const BigNumber &second)
 	remove_trailing_zeros(result);
 	return BigNumber(result);
 }
+
+size_t BigNumber::bit_length() const
+{
+	if (state.empty())
+	{
+		return 0;
+	}
+	int first_byte_size = 0;
+	for (unsigned char mask = 0x01; mask <= state.at(0) && mask != 0; mask <<= 1, first_byte_size++);
+	return (state.size() - 1) * 8 + first_byte_size;
+}
+
+std::vector<unsigned char> BigNumber::data()
+{
+	return state;
+}

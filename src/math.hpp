@@ -21,6 +21,9 @@ public:
 	friend bool operator>(const BigNumber &first, const BigNumber &second);
 	bool operator==(const BigNumber &other) const = default;
 	friend std::ostream& operator << ( std::ostream& os, BigNumber const& value );
+
+	[[ nodiscard ]] size_t bit_length() const;
+	std::vector<unsigned char> data();
 private:
 	std::vector<unsigned char> state;
 };
