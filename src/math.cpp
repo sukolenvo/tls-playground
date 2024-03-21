@@ -37,17 +37,22 @@ std::vector<unsigned char> add(const std::vector<unsigned char> &first, const st
 }
 
 
-BigNumber::BigNumber(const std::vector<unsigned char> &state) : magnitude(state), sign(Sign::PLUS)
+BigNumber::BigNumber(const Magnitude &magnitude) : magnitude(magnitude), sign(Sign::PLUS)
 {
 
 }
 
-BigNumber::BigNumber(std::vector<unsigned char> &&state) : magnitude(state), sign(Sign::PLUS)
+BigNumber::BigNumber(Magnitude &&magnitude) : magnitude(magnitude), sign(Sign::PLUS)
 {
 
 }
 
-BigNumber::BigNumber(std::vector<unsigned char> &&state, Sign sign) : magnitude(state), sign(sign)
+BigNumber::BigNumber(Magnitude &&magnitude, Sign sign) : magnitude(magnitude), sign(sign)
+{
+
+}
+
+BigNumber::BigNumber(const Magnitude &magnitude, Sign sign) : magnitude(magnitude), sign(sign)
 {
 
 }
@@ -129,7 +134,7 @@ BigNumber operator+(const BigNumber &first, const BigNumber &second)
 
 BigNumber operator-(const BigNumber &first, const BigNumber &second)
 {
-	return BigNumber(subtract_magnitudes(first.magnitude, second.magnitude));
+	return first + BigNumber(second.magnitude, ~second.sign);
 }
 
 std::ostream& operator<<( std::ostream& os, BigNumber const& value ) {
@@ -262,6 +267,11 @@ BigNumber operator&(const BigNumber &first, const BigNumber &second)
 	}
 	remove_trailing_zeros(result);
 	return BigNumber(result);
+}
+
+Sign operator~(const Sign &value)
+{
+	return value == Sign::PLUS ? Sign::MINUS : Sign::PLUS;
 }
 
 size_t BigNumber::bit_length() const

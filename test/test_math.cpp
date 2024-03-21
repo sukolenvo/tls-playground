@@ -20,6 +20,8 @@ TEST_CASE("add")
 	CAPTURE(std::get<0>(task), std::get<1>(task));
 	auto result = BigNumber(std::get<0>(task)) + BigNumber(std::get<1>(task));
 	REQUIRE(result == BigNumber(std::get<2>(task)));
+	REQUIRE(result - BigNumber(std::get<1>(task)) == BigNumber(std::get<0>(task)));
+	REQUIRE(result - BigNumber(std::get<0>(task)) == BigNumber(std::get<1>(task)));
 }
 
 TEST_CASE("add_signed")
@@ -48,6 +50,8 @@ TEST_CASE("add_signed")
 	CAPTURE(std::get<0>(task), std::get<1>(task));
 	auto result = std::get<0>(task) + std::get<1>(task);
 	REQUIRE(result == std::get<2>(task));
+	REQUIRE(result - std::get<0>(task) == std::get<1>(task));
+	REQUIRE(result - std::get<1>(task) == std::get<0>(task));
 }
 
 TEST_CASE("subtract")

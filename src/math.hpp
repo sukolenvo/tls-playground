@@ -9,12 +9,15 @@ enum class Sign
 	PLUS, MINUS
 };
 
+Sign operator~(const Sign &value);
+
 class BigNumber
 {
 public:
-	explicit BigNumber(const std::vector<unsigned char> &state);
-	explicit BigNumber(std::vector<unsigned char> &&state);
-	BigNumber(std::vector<unsigned char> &&state, Sign sign);
+	explicit BigNumber(const std::vector<unsigned char> &magnitude);
+	explicit BigNumber(std::vector<unsigned char> &&magnitude);
+	BigNumber(std::vector<unsigned char> &&magnitude, Sign sign);
+	BigNumber(const std::vector<unsigned char> &magnitude, Sign sign);
 
 	friend BigNumber operator+(const BigNumber &first, const BigNumber &second);
 	friend BigNumber operator-(const BigNumber &first, const BigNumber &second);
