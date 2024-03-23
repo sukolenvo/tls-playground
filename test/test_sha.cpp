@@ -4,17 +4,18 @@
 #include <utility>
 
 #include "utils.hpp"
-#include "md5.hpp"
+#include "sha.hpp"
 
-TEST_CASE("md5_hash")
+TEST_CASE("sha1_hash")
 {
 	auto task = GENERATE(
 			std::make_pair(std::vector<unsigned char>{ 'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', '!' },
-					"ed076287532e86365e841e92bfc50d8c"),
-			std::make_pair(std::vector<unsigned char>{}, "d41d8cd98f00b204e9800998ecf8427e")
+					"2ef7bde608ce5404e97d5f042f95f89f1c232871"),
+			std::make_pair(std::vector<unsigned char>{},
+					"da39a3ee5e6b4b0d3255bfef95601890afd80709")
 	);
 
 	CAPTURE(task.first);
-	const auto result = md5_hash(task.first);
+	const auto result = sha1_hash(task.first);
 	REQUIRE(hexStr(result.begin(), result.end()) == task.second);
 }

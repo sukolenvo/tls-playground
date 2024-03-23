@@ -139,7 +139,7 @@ std::array<unsigned char, 16> md5_hash(const std::vector<unsigned char> &input)
 {
 	std::array<uint_fast32_t, 4> hash = initial_hash;
 	std::array<unsigned char, 64> block{};
-	for (size_t i = 0; i < input.size(); i += block.size())
+	for (size_t i = 0; i <= input.size(); i += block.size())
 	{
 		const auto payload_size = std::min(input.size() - i, block.size());
 		if (payload_size == block.size())
