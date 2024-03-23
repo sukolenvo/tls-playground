@@ -19,3 +19,17 @@ TEST_CASE("sha1_hash")
 	const auto result = sha1_hash(task.first);
 	REQUIRE(hexStr(result.begin(), result.end()) == task.second);
 }
+
+TEST_CASE("sha256_hash")
+{
+	auto task = GENERATE(
+			std::make_pair(std::vector<unsigned char>{ 'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', '!' },
+					"7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"),
+			std::make_pair(std::vector<unsigned char>{},
+					"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	);
+
+	CAPTURE(task.first);
+	const auto result = sha256_hash(task.first);
+	REQUIRE(hexStr(result.begin(), result.end()) == task.second);
+}

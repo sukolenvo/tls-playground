@@ -6,4 +6,6 @@
 
 std::array<unsigned char, 20> sha1_hash(const std::vector<unsigned char> &input);
 
+std::array<unsigned char, 32> sha256_hash(const std::vector<unsigned char> &input);
+
 #endif //TLS_PLAYGROUND_SHA_HPP
