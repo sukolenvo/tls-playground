@@ -112,6 +112,23 @@ TEST_CASE("compare")
 	}
 }
 
+TEST_CASE("compare_sign")
+{
+	auto task = GENERATE(
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::PLUS), BigNumber(std::vector<unsigned char>{ }, Sign::PLUS), false),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::PLUS), BigNumber(std::vector<unsigned char>{ }, Sign::MINUS), false),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ }, Sign::PLUS), true),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ }, Sign::MINUS), true),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::MINUS), true),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::MINUS), false),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::PLUS), true),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::PLUS), BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::MINUS), false)
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	REQUIRE((std::get<0>(task) < std::get<1>(task)) == std::get<2>(task));
+}
+
+
 TEST_CASE("modulus")
 {
 	auto task = GENERATE(
@@ -131,6 +148,22 @@ TEST_CASE("modulus")
 	REQUIRE(first % second == BigNumber(std::get<2>(task)));
 }
 
+TEST_CASE("modulus signed")
+{
+	auto task = GENERATE(
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x11 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x07 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x04 }, Sign::PLUS)
+			),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x11 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x07 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x04 }, Sign::PLUS)
+			)
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	REQUIRE(std::get<0>(task) % std::get<1>(task) == std::get<2>(task));
+}
+
 TEST_CASE("multiply")
 {
 	auto task = GENERATE(
@@ -142,6 +175,27 @@ TEST_CASE("multiply")
 	CAPTURE(std::get<0>(task), std::get<1>(task));
 	auto result = BigNumber{ std::get<0>(task)} * BigNumber{std::get<1>(task)};
 	REQUIRE(result == BigNumber{ std::get<2>(task) });
+}
+
+TEST_CASE("multiply signed")
+{
+	auto task = GENERATE(
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x2 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x3 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x6 }, Sign::PLUS)
+			),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x2 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x3 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x6 }, Sign::MINUS)
+			),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x2 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x3 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x6 }, Sign::PLUS)
+			)
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	REQUIRE(std::get<0>(task) * std::get<1>(task) == std::get<2>(task));
+	REQUIRE(std::get<1>(task) * std::get<0>(task) == std::get<2>(task));
 }
 
 TEST_CASE("bit_length")

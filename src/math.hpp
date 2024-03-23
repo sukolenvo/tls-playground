@@ -10,6 +10,7 @@ enum class Sign
 };
 
 Sign operator~(const Sign &value);
+Sign operator^(const Sign &first, const Sign &second);
 
 class BigNumber
 {

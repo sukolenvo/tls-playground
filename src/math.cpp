@@ -6,7 +6,7 @@
 
 using Magnitude = std::vector<unsigned char>;
 
-std::vector<unsigned char> add(const std::vector<unsigned char> &first, const std::vector<unsigned char> &second)
+Magnitude add_magnitudes(const Magnitude &first, const Magnitude &second)
 {
 	auto result = first;
 	if (second.empty())
@@ -123,7 +123,7 @@ BigNumber operator+(const BigNumber &first, const BigNumber &second)
 {
 	if (first.sign == second.sign)
 	{
-		return { add(first.magnitude, second.magnitude), first.sign };
+		return { add_magnitudes(first.magnitude, second.magnitude), first.sign };
 	}
 	if (compare_magnitudes(first.magnitude, second.magnitude) > 0)
 	{
@@ -149,8 +149,8 @@ std::ostream& operator<<( std::ostream& os, BigNumber const& value ) {
 
 BigNumber operator*(const BigNumber &first, const BigNumber &second)
 {
-	BigNumber result{{}};
-	auto operand = first;
+	BigNumber result{{}, first.sign ^ second.sign};
+	BigNumber operand{first.magnitude, result.sign};
 	for (auto &value : std::ranges::reverse_view(second.magnitude))
 	{
 		for (unsigned char mask = 0x01; mask != 0; mask <<= 1)
@@ -224,8 +224,8 @@ BigNumber operator%(const BigNumber &first, const BigNumber &second)
 	{
 		return BigNumber({});
 	}
-	BigNumber divisor = second;
-	BigNumber reminder = first;
+	BigNumber divisor{second.magnitude, Sign::PLUS};
+	BigNumber reminder{first.magnitude, Sign::PLUS};
 	int bit_size = 0;
 	while(divisor < reminder)
 	{
@@ -244,12 +244,24 @@ BigNumber operator%(const BigNumber &first, const BigNumber &second)
 		divisor >>= 1;
 		--bit_size;
 	}
+	if (first.sign != second.sign)
+	{
+		reminder = BigNumber(second.magnitude, Sign::PLUS) - reminder;
+	}
 	return reminder;
 }
 
 bool operator<(const BigNumber &first, const BigNumber &second)
 {
-	return compare_magnitudes(first.magnitude, second.magnitude) < 0;
+	if (first.sign != second.sign)
+	{
+		return first.sign == Sign::MINUS;
+	}
+	if (first.sign == Sign::PLUS)
+	{
+		return compare_magnitudes(first.magnitude, second.magnitude) < 0;
+	}
+	return compare_magnitudes(first.magnitude, second.magnitude) > 0;
 }
 
 bool operator>(const BigNumber &first, const BigNumber &second)
@@ -259,6 +271,10 @@ bool operator>(const BigNumber &first, const BigNumber &second)
 
 BigNumber operator&(const BigNumber &first, const BigNumber &second)
 {
+	if (first.sign == Sign::MINUS || second.sign == Sign::MINUS)
+	{
+		throw std::runtime_error("negative numbers not supported");
+	}
 	std::vector<unsigned char> result(std::max(first.magnitude.size(), second.magnitude.size()), 0);
 	auto rI = result.rbegin();
 	for (auto fI = first.magnitude.rbegin(), sI = second.magnitude.rbegin(); fI != first.magnitude.rend() && sI != second.magnitude.rend(); ++fI, ++sI, ++rI)
@@ -272,6 +288,11 @@ BigNumber operator&(const BigNumber &first, const BigNumber &second)
 Sign operator~(const Sign &value)
 {
 	return value == Sign::PLUS ? Sign::MINUS : Sign::PLUS;
+}
+
+Sign operator^(const Sign &first, const Sign &second)
+{
+	return first == second ? Sign::PLUS : Sign::MINUS;
 }
 
 size_t BigNumber::bit_length() const
