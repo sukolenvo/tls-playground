@@ -99,6 +99,27 @@ struct sha1
 	};
 };
 
+consteval std::array<uint_fast32_t, 8> compute_sha256_initial_hash() {
+	std::array<uint_fast32_t, 8> hash{
+			0x67e6096a,
+			0x85ae67bb,
+			0x72f36e3c,
+			0x3af54fa5,
+			0x7f520e51,
+			0x8c68059b,
+			0xabd9831f,
+			0x19cde05b
+	};
+	for (unsigned long & i : hash)
+	{
+		i = (i & 0xFF) << 24
+			| (i & 0xFF00) << 8
+			| (i & 0xFF0000) >> 8
+			| (i & 0xFF000000) >> 24;
+	}
+	return hash;
+}
+
 struct sha256
 {
 	uint_fast32_t rotr(uint_fast32_t x, uint_fast32_t n)
@@ -141,14 +162,6 @@ struct sha256
 		uint_fast32_t a, b, c, d, e, f, g, h;
 		uint_fast32_t T1, T2;
 		int t, i;
-
-		for (i = 0; i < 8; i++)
-		{
-			hash[i] = (hash[i] & 0xFF) << 24
-					  | (hash[i] & 0xFF00) << 8
-					  | (hash[i] & 0xFF0000) >> 8
-					  | (hash[i] & 0xFF000000) >> 24;
-		}
 
 		for (t = 0; t < 64; t++)
 		{
@@ -198,16 +211,7 @@ struct sha256
 		hash[7] = h + hash[7];
 	}
 
-	constexpr static const std::array<uint_fast32_t, 8> initial_hash{
-			0x67e6096a,
-			0x85ae67bb,
-			0x72f36e3c,
-			0x3af54fa5,
-			0x7f520e51,
-			0x8c68059b,
-			0xabd9831f,
-			0x19cde05b
-	};
+	const std::array<uint_fast32_t, 8> initial_hash = compute_sha256_initial_hash();
 };
 
 template<uint hash_size, class SHA>
