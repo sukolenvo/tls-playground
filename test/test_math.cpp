@@ -219,3 +219,44 @@ TEST_CASE("bit_length")
 	CAPTURE(std::get<0>(task));
 	REQUIRE(BigNumber{ std::get<0>(task)}.bit_length() == std::get<1>(task));
 }
+
+TEST_CASE("divide")
+{
+	auto task = GENERATE(
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x14 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x05 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x04 }, Sign::PLUS)
+			),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x15 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x5 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x4 }, Sign::PLUS)
+			),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0xA }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x5 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x2 }, Sign::MINUS)
+			)
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	REQUIRE(std::get<0>(task) / std::get<1>(task) == std::get<2>(task));
+	REQUIRE(std::get<0>(task) / std::get<2>(task) == std::get<1>(task));
+}
+
+TEST_CASE("inverse_multiplicative")
+{
+	auto task = GENERATE(
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x5 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x0D }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x08 }, Sign::PLUS)
+			),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x25 }, Sign::PLUS), // 37
+					BigNumber(std::vector<unsigned char>{ 0x66 }, Sign::PLUS), // 102
+					BigNumber(std::vector<unsigned char>{ 0x5B }, Sign::PLUS)
+			),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01, 0x7F }, Sign::PLUS), // 383
+					BigNumber(std::vector<unsigned char>{ 0x07, 0x7A }, Sign::PLUS), // 1914
+					BigNumber(std::vector<unsigned char>{ 0x5 }, Sign::PLUS)
+			)
+	);
+	CAPTURE(std::get<0>(task), std::get<1>(task));
+	REQUIRE(std::get<0>(task).inverse_multiplicative(std::get<1>(task)) == std::get<2>(task));
+}

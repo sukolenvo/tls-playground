@@ -6,19 +6,7 @@
 
 BigNumber rsa_compute(const BigNumber &message, const BigNumber &exp, const BigNumber &modulus)
 {
-	BigNumber result({1});
-	BigNumber multiplier = message;
-	BigNumber mask({1});
-	while (mask < exp)
-	{
-		if ((mask & exp) != ZERO)
-		{
-			result = result * multiplier % modulus;
-		}
-		mask <<= 1;
-		multiplier = multiplier * multiplier % modulus;
-	}
-	return result;
+	return message.power_modulus(exp, modulus);
 }
 
 std::vector<unsigned char> rsa_encrypt(const std::vector<unsigned char> &input, const BigNumber &public_key, const BigNumber &modulus)
