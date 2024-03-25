@@ -359,7 +359,7 @@ size_t BigNumber::bit_length() const
 	return (magnitude.size() - 1) * 8 + first_byte_size;
 }
 
-std::vector<unsigned char> BigNumber::data()
+std::vector<unsigned char> BigNumber::data() const
 {
 	return magnitude;
 }

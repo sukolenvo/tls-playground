@@ -56,9 +56,11 @@ public:
 	[[nodiscard]]
 	BigNumber inverse_multiplicative(const BigNumber &modulus) const;
 
-	[[nodiscard]] size_t bit_length() const;
+	[[nodiscard]]
+	size_t bit_length() const;
 
-	std::vector<unsigned char> data();
+	[[nodiscard]]
+	std::vector<unsigned char> data() const;
 
 private:
 	std::vector<unsigned char> magnitude;
