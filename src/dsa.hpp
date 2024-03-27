@@ -3,6 +3,12 @@
 
 #include "math.hpp"
 
+[[nodiscard]]
+BigNumber dsa_message_hash_sha256(const std::vector<unsigned char> &message, const BigNumber &q);
+
+[[nodiscard]]
+BigNumber generate_secret(const BigNumber &q);
+
 struct DsaSignature
 {
 	BigNumber r;
@@ -12,9 +18,6 @@ struct DsaSignature
 class Dsa
 {
 	BigNumber g, p, q;
-
-	[[nodiscard]]
-	BigNumber generate_message_secret() const;
 
 public:
 	Dsa(BigNumber g, BigNumber p, BigNumber q);

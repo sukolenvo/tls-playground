@@ -6,9 +6,9 @@
 TEST_CASE("add")
 {
 	auto task = GENERATE(
-			std::make_tuple(std::vector<unsigned char>{ 0xFF }, std::vector<unsigned char>{ },
+			std::make_tuple(std::vector<unsigned char>{ 0xFF }, std::vector<unsigned char>{},
 					std::vector<unsigned char>{ 0xFF }),
-			std::make_tuple(std::vector<unsigned char>{  }, std::vector<unsigned char>{ 0x7 },
+			std::make_tuple(std::vector<unsigned char>{}, std::vector<unsigned char>{ 0x7 },
 					std::vector<unsigned char>{ 0x7 }),
 			std::make_tuple(std::vector<unsigned char>{ 0xFF, 0xFF, 0xFF, 0xFF }, std::vector<unsigned char>{ 0x1 },
 					std::vector<unsigned char>{ 0x01, 0x00, 0x00, 0x00, 0x00 }),
@@ -57,8 +57,8 @@ TEST_CASE("add_signed")
 TEST_CASE("subtract")
 {
 	auto task = GENERATE(
-			std::make_pair(std::vector<unsigned char>{  }, std::vector<unsigned char>{ }),
-			std::make_pair(std::vector<unsigned char>{ 0x07 }, std::vector<unsigned char>{ }),
+			std::make_pair(std::vector<unsigned char>{}, std::vector<unsigned char>{}),
+			std::make_pair(std::vector<unsigned char>{ 0x07 }, std::vector<unsigned char>{}),
 			std::make_pair(std::vector<unsigned char>{ 0xFF, 0xFF, 0xFF, 0xFF }, std::vector<unsigned char>{ 0x1 }),
 			std::make_pair(std::vector<unsigned char>{ 0x1, 0x2, }, std::vector<unsigned char>{ 0x02, 0x3, 0x4, 0x5 }),
 			std::make_pair(std::vector<unsigned char>{ 0xF0, }, std::vector<unsigned char>{ 0x10 })
@@ -75,12 +75,13 @@ TEST_CASE("shift left assign")
 			std::make_tuple(std::vector<unsigned char>{ 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0x00 },
 					1,
 					std::vector<unsigned char>{ 0x01, 0xFD, 0xB9, 0x75, 0x30, 0xEC, 0xA8, 0x64, 0x20, 0x00 }),
-			std::make_tuple(std::vector<unsigned char>{ },
+			std::make_tuple(std::vector<unsigned char>{},
 					20,
-					std::vector<unsigned char>{ }),
+					std::vector<unsigned char>{}),
 			std::make_tuple(std::vector<unsigned char>{ 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0x00 },
 					17,
-					std::vector<unsigned char>{ 0x01, 0xFD, 0xB9, 0x75, 0x30, 0xEC, 0xA8, 0x64, 0x20, 0x00, 0x00, 0x00 })
+					std::vector<unsigned char>{ 0x01, 0xFD, 0xB9, 0x75, 0x30, 0xEC, 0xA8, 0x64, 0x20, 0x00, 0x00,
+												0x00 })
 	);
 	CAPTURE(std::get<0>(task), std::get<1>(task));
 	BigNumber value{ std::get<0>(task) };
@@ -91,11 +92,11 @@ TEST_CASE("shift left assign")
 TEST_CASE("compare")
 {
 	auto task = GENERATE(
-			std::make_tuple(std::vector<unsigned char>{ }, std::vector<unsigned char>{ 0x01 }, true),
-			std::make_tuple(std::vector<unsigned char>{ }, std::vector<unsigned char>{ 0x01, 0x00 }, true),
-			std::make_tuple(std::vector<unsigned char>{ }, std::vector<unsigned char>{ }, false),
-			std::make_tuple(std::vector<unsigned char>{ 0x01 }, std::vector<unsigned char>{ }, false),
-			std::make_tuple(std::vector<unsigned char>{ 0x01, 0x00 }, std::vector<unsigned char>{ }, false),
+			std::make_tuple(std::vector<unsigned char>{}, std::vector<unsigned char>{ 0x01 }, true),
+			std::make_tuple(std::vector<unsigned char>{}, std::vector<unsigned char>{ 0x01, 0x00 }, true),
+			std::make_tuple(std::vector<unsigned char>{}, std::vector<unsigned char>{}, false),
+			std::make_tuple(std::vector<unsigned char>{ 0x01 }, std::vector<unsigned char>{}, false),
+			std::make_tuple(std::vector<unsigned char>{ 0x01, 0x00 }, std::vector<unsigned char>{}, false),
 			std::make_tuple(std::vector<unsigned char>{ 0x01, 0x00 }, std::vector<unsigned char>{ 0x01, 0x00 }, false),
 			std::make_tuple(std::vector<unsigned char>{ 0x02, 0x00 }, std::vector<unsigned char>{ 0x01, 0x00 }, false),
 			std::make_tuple(std::vector<unsigned char>{ 0x01, 0x00 }, std::vector<unsigned char>{ 0x02, 0x00 }, true),
@@ -115,14 +116,22 @@ TEST_CASE("compare")
 TEST_CASE("compare_sign")
 {
 	auto task = GENERATE(
-			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::PLUS), BigNumber(std::vector<unsigned char>{ }, Sign::PLUS), false),
-			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::PLUS), BigNumber(std::vector<unsigned char>{ }, Sign::MINUS), false),
-			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ }, Sign::PLUS), true),
-			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ }, Sign::MINUS), true),
-			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::MINUS), true),
-			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::MINUS), false),
-			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS), BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::PLUS), true),
-			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::PLUS), BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::MINUS), false)
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{}, Sign::PLUS), false),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{}, Sign::MINUS), false),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{}, Sign::PLUS), true),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{}, Sign::MINUS), true),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x01 }, Sign::MINUS), true),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::MINUS), false),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::PLUS), true),
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x02 }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x03 }, Sign::MINUS), false)
 	);
 	CAPTURE(std::get<0>(task), std::get<1>(task));
 	REQUIRE((std::get<0>(task) < std::get<1>(task)) == std::get<2>(task));
@@ -173,7 +182,7 @@ TEST_CASE("multiply")
 			)
 	);
 	CAPTURE(std::get<0>(task), std::get<1>(task));
-	auto result = BigNumber{ std::get<0>(task)} * BigNumber{std::get<1>(task)};
+	auto result = BigNumber{ std::get<0>(task) } * BigNumber{ std::get<1>(task) };
 	REQUIRE(result == BigNumber{ std::get<2>(task) });
 }
 
@@ -201,7 +210,7 @@ TEST_CASE("multiply signed")
 TEST_CASE("bit_length")
 {
 	auto task = GENERATE(
-			std::make_pair(std::vector<unsigned char>{  }, 0),
+			std::make_pair(std::vector<unsigned char>{}, 0),
 			std::make_pair(std::vector<unsigned char>{ 0x01 }, 1),
 			std::make_pair(std::vector<unsigned char>{ 0x02 }, 2),
 			std::make_pair(std::vector<unsigned char>{ 0x03 }, 2),
@@ -217,7 +226,7 @@ TEST_CASE("bit_length")
 			std::make_pair(std::vector<unsigned char>{ 0x0F, 0x0, 0x0 }, 20)
 	);
 	CAPTURE(std::get<0>(task));
-	REQUIRE(BigNumber{ std::get<0>(task)}.bit_length() == std::get<1>(task));
+	REQUIRE(BigNumber{ std::get<0>(task) }.bit_length() == std::get<1>(task));
 }
 
 TEST_CASE("divide")
@@ -244,13 +253,17 @@ TEST_CASE("divide")
 TEST_CASE("inverse_multiplicative")
 {
 	auto task = GENERATE(
+			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x5 }, Sign::MINUS),
+					BigNumber(std::vector<unsigned char>{ 0x0D }, Sign::PLUS),
+					BigNumber(std::vector<unsigned char>{ 0x05 }, Sign::PLUS)
+			),
 			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x5 }, Sign::PLUS),
 					BigNumber(std::vector<unsigned char>{ 0x0D }, Sign::PLUS),
 					BigNumber(std::vector<unsigned char>{ 0x08 }, Sign::PLUS)
 			),
 			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x25 }, Sign::PLUS), // 37
 					BigNumber(std::vector<unsigned char>{ 0x66 }, Sign::PLUS), // 102
-					BigNumber(std::vector<unsigned char>{ 0x5B }, Sign::PLUS)
+					BigNumber(std::vector<unsigned char>{ 0x5B }, Sign::PLUS) // 91
 			),
 			std::make_tuple(BigNumber(std::vector<unsigned char>{ 0x01, 0x7F }, Sign::PLUS), // 383
 					BigNumber(std::vector<unsigned char>{ 0x07, 0x7A }, Sign::PLUS), // 1914

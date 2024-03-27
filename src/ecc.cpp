@@ -7,10 +7,10 @@
 BigNumber undo_multiplication(const BigNumber &x, const BigNumber &y, const BigNumber &modulus)
 {
 	const auto inverse = y.inverse_multiplicative(modulus);
-	return x * inverse % modulus;
+	return x * inverse;
 }
 
-BigPoint EllipticCurve::sum_points(const BigPoint &first, const BigPoint &second, const BigNumber &modulus) const
+BigPoint EllipticCurve::sum_points(const BigPoint &first, const BigPoint &second) const
 {
 	const auto lambda = undo_multiplication(second.y - first.y, second.x - first.x, modulus);
 
@@ -19,7 +19,7 @@ BigPoint EllipticCurve::sum_points(const BigPoint &first, const BigPoint &second
 	return { x, y };
 }
 
-BigPoint EllipticCurve::double_point(const BigPoint &point, const BigNumber &modulus) const
+BigPoint EllipticCurve::double_point(const BigPoint &point) const
 {
 	const auto lambda = undo_multiplication(
 			BigNumber({ 3 }) * point.x * point.x + a,
@@ -31,32 +31,34 @@ BigPoint EllipticCurve::double_point(const BigPoint &point, const BigNumber &mod
 	return { x, y };
 }
 
-BigPoint EllipticCurve::multiply_point(const BigPoint &point, const BigNumber &multiplier, const BigNumber &modulus) const
+BigPoint EllipticCurve::multiply_point(const BigPoint &point, const BigNumber &multiplier) const
 {
 	std::optional<BigPoint> accumulator{};
 	auto add_operand = point;
 	for (auto val: std::ranges::reverse_view(multiplier.data()))
 	{
-		for (unsigned char mask = 1; mask != 0 && mask <= val; mask <<= 1)
+		for (unsigned char mask = 1; mask != 0; mask <<= 1)
 		{
 			if ((val & mask) != 0)
 			{
 				if (accumulator.has_value())
 				{
-					accumulator = sum_points(accumulator.value(), add_operand, modulus);
+					accumulator = sum_points(accumulator.value(), add_operand);
 				}
 				else
 				{
 					accumulator = add_operand;
 				}
 			}
-			add_operand = double_point(add_operand, modulus);
+			add_operand = double_point(add_operand);
 		}
 	}
 	return accumulator.value();
 }
 
-EllipticCurve::EllipticCurve(BigNumber a, BigNumber b) : a(std::move(a)), b(std::move(b))
+EllipticCurve::EllipticCurve(BigNumber a, BigNumber b, BigNumber modulus) : a(std::move(a)),
+																			b(std::move(b)),
+																			modulus(std::move(modulus))
 {
 
 }

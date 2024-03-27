@@ -62,6 +62,9 @@ public:
 	[[nodiscard]]
 	std::vector<unsigned char> data() const;
 
+	[[nodiscard]]
+	Sign get_sign() const;
+
 private:
 	std::vector<unsigned char> magnitude;
 	Sign sign;

@@ -13,19 +13,19 @@ struct BigPoint
 
 class EllipticCurve
 {
-	BigNumber a, b;
+	BigNumber a, b, modulus;
 
 	[[nodiscard]]
-	BigPoint sum_points(const BigPoint &first, const BigPoint &second, const BigNumber &modulus) const;
-
-	[[nodiscard]]
-	BigPoint double_point(const BigPoint &point, const BigNumber &modulus) const;
+	BigPoint double_point(const BigPoint &point) const;
 
 public:
-	EllipticCurve(BigNumber a, BigNumber b);
+	EllipticCurve(BigNumber a, BigNumber b, BigNumber modulus);
 
 	[[nodiscard]]
-	BigPoint multiply_point(const BigPoint &point, const BigNumber &multiplier, const BigNumber &modulus) const;
+	BigPoint sum_points(const BigPoint &first, const BigPoint &second) const;
+
+	[[nodiscard]]
+	BigPoint multiply_point(const BigPoint &point, const BigNumber &multiplier) const;
 };
 
 #endif //TLS_PLAYGROUND_ECC_HPP

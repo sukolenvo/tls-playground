@@ -148,13 +148,23 @@ BigNumber operator-(const BigNumber &first, const BigNumber &second)
 	return first + BigNumber(second.magnitude, ~second.sign);
 }
 
+char hex(auto val) {
+	if (val < 10) {
+		return val + '0';
+	}
+	if (val < 16) {
+		return val + 'a' - 10;
+	}
+	throw std::runtime_error("unexpected val");
+}
+
 std::ostream &operator<<(std::ostream &os, BigNumber const &value)
 {
 	os << (value.sign == Sign::PLUS ? '+' : '-');
 	os << "BigNumber{";
 	for (const auto &item: value.magnitude)
 	{
-		os << " " << item;
+		os << " " << hex((item & 0xF0) >> 4) << hex(item &0xF);
 	}
 	return os << " }";
 }
@@ -400,6 +410,9 @@ BigNumber BigNumber::inverse_multiplicative(const BigNumber &modulus) const
 	auto j = *this;
 	BigNumber y2 = ZERO;
 	BigNumber y1{{ 1 }};
+	if (j.sign == Sign::MINUS) {
+		j = j % modulus;
+	}
 	while (j > ZERO)
 	{
 		const auto quotient = i / j;
@@ -411,4 +424,9 @@ BigNumber BigNumber::inverse_multiplicative(const BigNumber &modulus) const
 		y1 = y;
 	}
 	return y2 % modulus;
+}
+
+Sign BigNumber::get_sign() const
+{
+	return sign;
 }
