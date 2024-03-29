@@ -5,6 +5,8 @@
 #include <variant>
 #include <vector>
 
+#include "math.hpp"
+
 enum class Asn1Tag
 {
 	Universal,
@@ -16,6 +18,7 @@ enum class Asn1Tag
 
 enum class Asn1Type : unsigned char
 {
+	Ber = 0,
 	Boolean = 1,
 	Integer = 2,
 	BitString = 3,
@@ -39,7 +42,7 @@ struct Asn1
 	Asn1Tag tag;
 	bool constructed;
 	Asn1Type type;
-	std::variant<int, std::string, std::vector<Asn1>> data;
+	std::variant<bool, std::vector<Asn1>, BigNumber, std::string> data;
 };
 
 struct Asn1Value : Asn1
@@ -53,6 +56,6 @@ struct Asn1Sequence : Asn1
 };
 
 [[nodiscard]]
-Asn1 parse(const std::vector<unsigned char> &data);
+std::vector<Asn1> parse_asn1(const std::vector<unsigned char> &certificate);
 
 #endif //TLS_PLAYGROUND_ASN1_HPP
