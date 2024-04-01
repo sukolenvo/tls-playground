@@ -92,6 +92,7 @@ std::vector<Asn1> parse_asn1(auto &begin, const auto end)
 			{
 				throw std::runtime_error("expecting null type to be of length 0");
 			}
+			value.data = ZERO;
 		}
 		else if (value.type == Asn1Type::PrintableString || value.type == Asn1Type::Ia5String ||
 				 value.type == Asn1Type::Utf8String)
@@ -108,10 +109,9 @@ std::vector<Asn1> parse_asn1(auto &begin, const auto end)
 			{
 				throw std::runtime_error("big string with non-zero padding");
 			}
-			std::string str{};
-			str.resize(length);
-			std::copy_n(begin, length, str.data());
-			value.data = str;
+			std::vector<unsigned char> number{};
+			std::copy_n(begin, length, std::back_inserter(number));
+			value.data = BigNumber(number);
 			begin += length - 1;
 		}
 		else if (value.type == Asn1Type::Boolean)

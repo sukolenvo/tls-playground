@@ -4,7 +4,7 @@
 #include "utils.hpp"
 #include "asn1.hpp"
 
-TEST_CASE("parse")
+TEST_CASE("parse ASN.1")
 {
 	const auto file_data = read_file("resources/cert.der");
 	const std::vector<unsigned char> data{file_data.begin(), file_data.end()};
