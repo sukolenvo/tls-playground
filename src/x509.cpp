@@ -80,7 +80,7 @@ std::chrono::time_point<std::chrono::system_clock> parse_asn1_time(const Asn1 &a
 			static_cast<unsigned int>((time.data()[monthIdx + 2] - '0') * 10 + (time.data()[monthIdx + 3] - '0')) };
 	const std::chrono::hours hours{ (time.data()[monthIdx + 4] - '0') * 10 + (time.data()[monthIdx + 5] - '0') };
 	const std::chrono::minutes minutes{ (time.data()[monthIdx + 6] - '0') * 10 + (time.data()[monthIdx + 7] - '0') };
-	const std::chrono::minutes seconds{ (time.data()[monthIdx + 8] - '0') * 10 + (time.data()[monthIdx + 9] - '0') };
+	const std::chrono::seconds seconds{ (time.data()[monthIdx + 8] - '0') * 10 + (time.data()[monthIdx + 9] - '0') };
 	const auto time_of_day = hours + minutes + seconds;
 	if (time.data()[monthIdx + 10] != 'Z')
 	{
@@ -161,10 +161,10 @@ Extensions parse_extensions(const std::vector<Asn1> &tbs_certificate_asn)
 	}
 	const auto items_container = std::get<std::vector<Asn1>>(extensions_asn->data);
 	Extensions result{};
-	for (const auto &container : items_container)
+	for (const auto &container: items_container)
 	{
 		const auto values = std::get<std::vector<Asn1>>(container.data);
-		for (const auto item : values)
+		for (const auto item: values)
 		{
 			const auto extension_asn = std::get<std::vector<Asn1>>(item.data);
 			if (extension_asn.size() < 2 || extension_asn[0].type != Asn1Type::OID)
@@ -193,20 +193,22 @@ Extensions parse_extensions(const std::vector<Asn1> &tbs_certificate_asn)
 					}
 				}
 			}
-			// https://www.alvestrand.no/objectid/2.5.29.19.html
+				// https://www.alvestrand.no/objectid/2.5.29.19.html
 			else if (oid == BigNumber({ 0x55, 0x1d, 0x13 }))
 			{
 				const auto basic_constraint_asn = parse_asn1(value.data());
-				if (basic_constraint_asn.size() != 1 || !basic_constraint_asn.at(0).constructed) {
+				if (basic_constraint_asn.type != Asn1Type::Sequence)
+				{
 					throw std::runtime_error("malformed extension: basic constraint format");
 				}
-				const auto basic_constrain_values = std::get<std::vector<Asn1>>(basic_constraint_asn.at(0).data);
+				const auto basic_constrain_values = std::get<std::vector<Asn1>>(basic_constraint_asn.data);
 				if (!basic_constrain_values.empty())
 				{
 					result.is_ca = std::get<bool>(basic_constrain_values.at(0).data);
 				}
 			}
-			else if (critical) {
+			else if (critical)
+			{
 				throw std::runtime_error("unrecognised critical extension");
 			}
 		}
@@ -285,10 +287,5 @@ SignedX509Certificate parse_signed_certificate(const Asn1 &asn)
 
 SignedX509Certificate parse_certificate(const std::vector<unsigned char> &certificate)
 {
-	const auto asn = parse_asn1(certificate);
-	if (asn.size() != 1)
-	{
-		throw std::runtime_error("Invalid ASN.1 structure");
-	}
-	return parse_signed_certificate(asn.front());
+	return parse_signed_certificate(parse_asn1(certificate));
 }

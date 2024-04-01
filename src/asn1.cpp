@@ -79,7 +79,7 @@ std::vector<Asn1> parse_asn1(auto &begin, const auto end)
 		}
 		else if (value.tag == Asn1Tag::ContextSpecific)
 		{
-			value.type == Asn1Type::Sequence;
+			value.type = Asn1Type::Sequence;
 			value.explicit_tag_value = typeValue & 0x1F;
 		}
 		const auto length = parse_length(begin, end);
@@ -126,7 +126,8 @@ std::vector<Asn1> parse_asn1(auto &begin, const auto end)
 		else if (value.type == Asn1Type::Boolean)
 		{
 			value.data = *begin++ == 0xFF;
-		} else
+		}
+		else
 		{
 			throw std::runtime_error("unexpected type");
 		}
@@ -135,8 +136,43 @@ std::vector<Asn1> parse_asn1(auto &begin, const auto end)
 	return result;
 }
 
-std::vector<Asn1> parse_asn1(const std::vector<unsigned char> &certificate)
+Asn1 parse_asn1(const std::vector<unsigned char> &certificate)
 {
 	auto begin = certificate.begin();
-	return parse_asn1(begin, certificate.end());
+	return parse_asn1(begin, certificate.end()).at(0);
+}
+
+std::vector<unsigned char> get_by_asn_path(
+		const std::vector<unsigned char> &asn,
+		const std::vector<unsigned char> &asn_path)
+{
+	size_t pos = 0;
+	for (auto idx: asn_path)
+	{
+		const auto type = asn.at(pos);
+		getTag(type); // check one type tag
+		auto position_start = asn.begin() + pos + 1;
+		parse_length(position_start, asn.end());
+		pos += 1 + std::distance(asn.begin() + pos + 1, position_start);
+		for (auto i = 0; i < idx; ++i)
+		{
+			const auto type = asn.at(pos);
+			getTag(type); // check one type tag
+			auto position_start = asn.begin() + pos + 1;
+			auto length = parse_length(position_start, asn.end());
+			pos += length + 1 + std::distance(asn.begin() + pos + 1, position_start);
+		}
+	}
+	const auto type = asn.at(pos);
+	getTag(type); // check one type tag
+	auto position_start = asn.begin() + pos + 1;
+	auto length = parse_length(position_start, asn.end());
+	std::vector<unsigned char> result{};
+	if (pos + length > asn.size())
+	{
+		throw std::runtime_error("malformed input: unexpected EOF");
+	}
+	std::copy_n(asn.begin() + pos + 1 + std::distance(asn.begin() + pos + 1, position_start), length,
+			std::back_inserter(result));
+	return result;
 }

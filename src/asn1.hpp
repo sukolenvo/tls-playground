@@ -57,6 +57,11 @@ struct Asn1Sequence : Asn1
 };
 
 [[nodiscard]]
-std::vector<Asn1> parse_asn1(const std::vector<unsigned char> &certificate);
+Asn1 parse_asn1(const std::vector<unsigned char> &certificate);
+
+[[nodiscard]]
+std::vector<unsigned char> get_by_asn_path(
+		const std::vector<unsigned char> &asn,
+		const std::vector<unsigned char> &asn_path);
 
 #endif //TLS_PLAYGROUND_ASN1_HPP
