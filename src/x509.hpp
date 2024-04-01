@@ -37,6 +37,24 @@ struct Name
 	int operator<=>(const Name &other) const = default;
 };
 
+enum class KeyUsageType : unsigned char {
+	DigitalSignature = 0,
+	NonRepudiation = 1,
+	KeyEncipherment = 2,
+	DataEncipherment = 3,
+	KeyAgreement = 4,
+	KeyCertSign = 5,
+	CrlSign = 6,
+	EncipherOnly = 7,
+	DecipherOnly = 8
+};
+
+struct Extensions
+{
+	std::vector<KeyUsageType> key_usage;
+	bool is_ca;
+};
+
 struct x509Certificate
 {
 	int version;
@@ -47,6 +65,7 @@ struct x509Certificate
 	std::chrono::time_point<std::chrono::system_clock> not_after;
 	Name subject;
 	PublicKeyInfo subject_public_key;
+	Extensions extensions;
 };
 
 struct SignedX509Certificate

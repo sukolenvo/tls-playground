@@ -40,6 +40,7 @@ enum class Asn1Type : unsigned char
 struct Asn1
 {
 	Asn1Tag tag;
+	unsigned char explicit_tag_value;
 	bool constructed;
 	Asn1Type type;
 	std::variant<bool, std::vector<Asn1>, BigNumber, std::string> data;

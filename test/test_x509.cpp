@@ -27,4 +27,6 @@ TEST_CASE("parse x509 certificate")
 	using namespace std::literals;
 	REQUIRE(result.tbs_certificate.not_before == sys_days{28d/std::chrono::March/2024} + 19h + 42min );
 	REQUIRE(result.tbs_certificate.not_after == sys_days{27d/std::chrono::April/2024} + 19h + 42min );
+	REQUIRE(result.tbs_certificate.extensions.is_ca);
+	REQUIRE(result.tbs_certificate.extensions.key_usage.empty());
 }

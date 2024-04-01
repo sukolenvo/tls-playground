@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <stdexcept>
 
 #include "asn1.hpp"
@@ -147,6 +148,72 @@ PublicKeyInfo parse_public_key(const Asn1 &asn)
 	};
 }
 
+Extensions parse_extensions(const std::vector<Asn1> &tbs_certificate_asn)
+{
+	const auto extensions_asn = std::find_if(tbs_certificate_asn.begin(), tbs_certificate_asn.end(),
+			[](const auto &item)
+			{
+				return item.tag == Asn1Tag::ContextSpecific && item.explicit_tag_value == 3;
+			});
+	if (extensions_asn == tbs_certificate_asn.end())
+	{
+		return {};
+	}
+	const auto items_container = std::get<std::vector<Asn1>>(extensions_asn->data);
+	Extensions result{};
+	for (const auto &container : items_container)
+	{
+		const auto values = std::get<std::vector<Asn1>>(container.data);
+		for (const auto item : values)
+		{
+			const auto extension_asn = std::get<std::vector<Asn1>>(item.data);
+			if (extension_asn.size() < 2 || extension_asn[0].type != Asn1Type::OID)
+			{
+				throw std::runtime_error("malformed extension");
+			}
+			const auto oid = std::get<BigNumber>(extension_asn[0].data);
+			auto critical = false;
+			if (extension_asn[1].type == Asn1Type::Boolean)
+			{
+				critical = std::get<bool>(extension_asn[1].data);
+			}
+			const auto value = std::get<BigNumber>(extension_asn.back().data);
+			if (oid == BigNumber({ 0x55, 0x1d, 0x0f })) // 2.5.29.15
+			{
+				if (value.data().empty())
+				{
+					throw std::runtime_error("malformed extension: key usage length");
+				}
+				for (auto i = static_cast<unsigned char>(KeyUsageType::DigitalSignature);
+					 i <= static_cast<unsigned char>(KeyUsageType::DecipherOnly); ++i)
+				{
+					if ((value.data().at(i / 8) & (0x80 >> (i % 8))) != 0)
+					{
+						result.key_usage.push_back(static_cast<KeyUsageType>(i));
+					}
+				}
+			}
+			// https://www.alvestrand.no/objectid/2.5.29.19.html
+			else if (oid == BigNumber({ 0x55, 0x1d, 0x13 }))
+			{
+				const auto basic_constraint_asn = parse_asn1(value.data());
+				if (basic_constraint_asn.size() != 1 || !basic_constraint_asn.at(0).constructed) {
+					throw std::runtime_error("malformed extension: basic constraint format");
+				}
+				const auto basic_constrain_values = std::get<std::vector<Asn1>>(basic_constraint_asn.at(0).data);
+				if (!basic_constrain_values.empty())
+				{
+					result.is_ca = std::get<bool>(basic_constrain_values.at(0).data);
+				}
+			}
+			else if (critical) {
+				throw std::runtime_error("unrecognised critical extension");
+			}
+		}
+	}
+	return result;
+}
+
 x509Certificate parse_tbs_certificate(const Asn1 &asn)
 {
 	if (!std::holds_alternative<std::vector<Asn1>>(asn.data))
@@ -160,7 +227,7 @@ x509Certificate parse_tbs_certificate(const Asn1 &asn)
 	}
 	auto version = 0;
 	auto versionIdx = -1;
-	if (tbs_certificate_asn.at(0).tag == Asn1Tag::ContextSpecific)
+	if (tbs_certificate_asn.at(0).tag == Asn1Tag::ContextSpecific && tbs_certificate_asn.at(0).explicit_tag_value == 0)
 	{
 		const auto version_asn = std::get<std::vector<Asn1>>(tbs_certificate_asn.at(0).data);
 		if (version_asn.size() != 1)
@@ -184,6 +251,8 @@ x509Certificate parse_tbs_certificate(const Asn1 &asn)
 	const auto subject = parse_asn1_name(tbs_certificate_asn.at(versionIdx + 5));
 	const auto subject_public_key = parse_public_key(tbs_certificate_asn.at(versionIdx + 6));
 
+	const auto extensions = parse_extensions(tbs_certificate_asn);
+
 	return {
 			version,
 			serialNumber,
@@ -192,7 +261,8 @@ x509Certificate parse_tbs_certificate(const Asn1 &asn)
 			notBefore,
 			notAfter,
 			subject,
-			subject_public_key
+			subject_public_key,
+			extensions
 	};
 }
 

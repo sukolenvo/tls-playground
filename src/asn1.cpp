@@ -72,7 +72,16 @@ std::vector<Asn1> parse_asn1(auto &begin, const auto end)
 		Asn1 value{};
 		value.tag = getTag(typeValue);
 		value.constructed = (typeValue & 0x20) != 0;
-		value.type = getType(typeValue);
+		if (value.tag == Asn1Tag::Universal)
+		{
+			value.type = getType(typeValue);
+			value.explicit_tag_value = 0;
+		}
+		else if (value.tag == Asn1Tag::ContextSpecific)
+		{
+			value.type == Asn1Type::Sequence;
+			value.explicit_tag_value = typeValue & 0x1F;
+		}
 		const auto length = parse_length(begin, end);
 		if (value.constructed)
 		{
