@@ -7,7 +7,7 @@
 
 TEST_CASE("get from local server")
 {
-	const auto result = http_get("http://127.0.0.1:8000/config.txt");
+	const auto result = http_get("http://localhost:8000/config.txt");
 	CAPTURE(std::string(result.begin(), result.end()));
 	const auto expected_prefix = std::string{"HTTP/1.0 200 OK"};
 	REQUIRE(result.size() > expected_prefix.size());

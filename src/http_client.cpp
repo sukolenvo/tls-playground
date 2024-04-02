@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -71,9 +72,24 @@ std::vector<char> http_get(const std::string &url)
 		throw std::runtime_error("Failed to create socket");
 	}
 
+	const auto host_result = gethostbyname(uri.host.c_str());
+	if (host_result == nullptr)
+	{
+		switch (h_errno)
+		{
+		case HOST_NOT_FOUND:
+			throw std::runtime_error("invalid hostname: host not found");
+		case NO_ADDRESS:
+			throw std::runtime_error("invalid hostname: no address");
+		case TRY_AGAIN:
+			throw std::runtime_error("invalid hostname: name server is temporary unavailable");
+		default:
+			throw std::runtime_error("invalid hostname: unknown error");
+		}
+	}
 	sockaddr_in address{};
 	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = inet_addr(uri.host.c_str());
+	address.sin_addr = *reinterpret_cast<in_addr*>(host_result->h_addr_list[0]);
 	address.sin_port = htons(uri.port.value_or(80));
 
 	if (connect(sock_fd, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0)
