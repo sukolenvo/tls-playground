@@ -1,11 +1,9 @@
-#include <algorithm>
-#include <array>
+#include <memory>
 #include <stdexcept>
-#include <string>
-#include <vector>
 
 #include "uri.hpp"
 #include "tcp_socket.hpp"
+#include "tls_tcp_socket.hpp"
 #include "http_client.hpp"
 
 std::string build_request(const Uri &uri)
@@ -21,12 +19,13 @@ Connection: close
 std::vector<char> http_get(const std::string &url)
 {
 	const auto uri = parse_url(url);
-	if (uri.protocol != "http")
+	if (uri.protocol != "http" && uri.protocol != "https")
 	{
 		throw std::runtime_error("protocol not supported: " + uri.protocol);
 	}
-	TcpSocket socket{};
-	socket.connect(uri);
-	socket.write(build_request(uri));
-	return socket.read();
+	const auto socket = uri.protocol == "https" ? std::make_unique<TlsTcpSocket>() : std::make_unique<TcpSocket>();
+	socket->connect(uri);
+	const auto request = build_request(uri);
+	socket->write({ request.begin(), request.end() });
+	return socket->read();
 }

@@ -8,25 +8,29 @@
 class TcpSocket
 {
 	int socket_fd{-1};
+
+protected:
+	void read(std::vector<char> &buffer);
+	virtual int default_port();
 public:
 	TcpSocket() = default;
 	TcpSocket(const TcpSocket &) = delete;
 
 	TcpSocket(TcpSocket &&other) noexcept ;
 
-	~TcpSocket();
+	virtual ~TcpSocket();
 
 	TcpSocket &operator=(const TcpSocket &) = delete;
 
 	TcpSocket &operator=(TcpSocket &&) noexcept ;
 
-	void connect(const Uri &uri);
+	virtual void connect(const Uri &uri);
 
-	std::vector<char> read();
+	virtual std::vector<char> read();
 
-	void write(const std::string&bytes);
+	virtual void write(const std::vector<char> &bytes);
 
-	void close();
+	virtual void close();
 };
 
 #endif //TLS_PLAYGROUND_TCP_SOCKET_HPP
