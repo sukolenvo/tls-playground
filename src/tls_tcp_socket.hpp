@@ -6,6 +6,9 @@
 
 class TlsTcpSocket : public TcpSocket
 {
+private:
+	struct ServerHelloData;
+	ServerHelloData wait_server_done();
 protected:
 	int default_port() override;
 public:

@@ -30,6 +30,8 @@ enum class CompressionType : char
 struct ProtocolVersion
 {
 	char major, minor;
+
+	int operator<=>(const ProtocolVersion &other) const = default;
 };
 
 struct ClientHelloPackage
@@ -160,7 +162,7 @@ ServerHello parse_server_hello(auto begin, const auto end)
 	const auto compression = *begin++;
 	if (begin != end)
 	{
-		throw std::runtime_error("malformed server_hellor");
+		throw std::runtime_error("malformed server_hello");
 	}
 	return {
 			{ major, minor },
@@ -192,6 +194,91 @@ std::vector<SignedX509Certificate> parse_x509_certificate_chain(auto begin, cons
 	return chain;
 }
 
+struct TlsTcpSocket::ServerHelloData
+{
+	ServerHello server_hello;
+	std::vector<SignedX509Certificate> certificate_chain;
+};
+
+TlsTcpSocket::ServerHelloData TlsTcpSocket::wait_server_done()
+{
+	ServerHello server_hello{};
+	std::vector<SignedX509Certificate> certificate_chain{};
+	std::vector<char> buffer(5, 0);
+	while (true)
+	{
+		TcpSocket::read(buffer);
+
+		if (buffer.at(0) < static_cast<char>(TlsContentType::ChangeCipherSpec) ||
+			buffer.at(0) > static_cast<char>(TlsContentType::ApplicationData))
+		{
+			close();
+			throw std::runtime_error("tls error: response is not a valid TLS message");
+		}
+		TlsPackage server_package{};
+		server_package.content_type = static_cast<TlsContentType>(buffer.at(0));
+		server_package.protocol_version = { buffer.at(1), buffer.at(2) };
+		server_package.payload = std::vector<char>(
+				(buffer.at(3) & 0xFF) << 8
+				| ((buffer.at(4) & 0xFF) << 0));
+
+		TcpSocket::read(server_package.payload);
+
+		if (server_package.content_type == TlsContentType::Handshake)
+		{
+			size_t pos{};
+			while (pos < server_package.payload.size())
+			{
+				const auto handshake_type = static_cast<HandshakeMessageType>(server_package.payload.at(pos++));
+				const auto handshake_length =
+						server_package.payload.at(pos) << 16 | server_package.payload.at(pos + 1) << 8 |
+						server_package.payload.at(pos + 2);
+				pos += 3;
+				if (handshake_type == HandshakeMessageType::ServerHello)
+				{
+					server_hello = parse_server_hello(server_package.payload.begin() + pos,
+							server_package.payload.begin() + pos + handshake_length);
+					pos += handshake_length;
+				}
+				else if (handshake_type == HandshakeMessageType::Certificate)
+				{
+					certificate_chain = parse_x509_certificate_chain(server_package.payload.begin() + pos,
+							server_package.payload.begin() + pos + handshake_length);
+					pos += handshake_length;
+				}
+				else if (handshake_type == HandshakeMessageType::ServerHelloDone)
+				{
+					return { server_hello, certificate_chain };
+				}
+				else
+				{
+					close();
+					throw std::runtime_error("tls error: server_hello expected");
+				}
+			}
+		}
+		else if (server_package.content_type == TlsContentType::Alert)
+		{
+			const auto alert_level = server_package.payload.at(0);
+			const auto alert_type = server_package.payload.at(1);
+			if (alert_level == 2)
+			{
+				close();
+				throw std::runtime_error("tls error: received fatal alert " + std::to_string(alert_type));
+			}
+			else
+			{
+				std::cerr << "Received non-fatal tls alert: " << alert_type;
+			}
+		}
+		else
+		{
+			close();
+			throw std::runtime_error("tls error: handshake package expected");
+		}
+	}
+}
+
 void TlsTcpSocket::connect(const Uri &uri)
 {
 	TcpSocket::connect(uri);
@@ -204,75 +291,11 @@ void TlsTcpSocket::connect(const Uri &uri)
 	};
 	TcpSocket::write(build_tls_message(tls_message));
 
-	std::vector<char> buffer(6, 0);
-	TcpSocket::read(buffer);
-
-	if (buffer.at(0) < static_cast<char>(TlsContentType::ChangeCipherSpec) ||
-		buffer.at(0) > static_cast<char>(TlsContentType::ApplicationData))
+	const auto hello_data = wait_server_done();
+	if (hello_data.certificate_chain.empty() || hello_data.server_hello.protocol_version != ProtocolVersion{ 3, 1 })
 	{
 		close();
-		throw std::runtime_error("tls error: response is not a valid TLS message");
-	}
-	TlsPackage server_package{};
-	server_package.content_type = static_cast<TlsContentType>(buffer.at(0));
-	server_package.protocol_version = { buffer.at(1), buffer.at(2) };
-	server_package.payload = std::vector<char>(
-			(buffer.at(3) & 0xFF) << 16
-			| ((buffer.at(4) & 0xFF) << 8)
-			| ((buffer.at(5) & 0xFF) << 0));
-
-	TcpSocket::read(server_package.payload);
-
-	if (server_package.content_type == TlsContentType::Handshake)
-	{
-		size_t pos{};
-		while (pos < server_package.payload.size())
-		{
-			const auto handshake_type = static_cast<HandshakeMessageType>(server_package.payload.at(pos++));
-			const auto handshake_length =
-					server_package.payload.at(pos) << 16 | server_package.payload.at(pos + 1) << 8 |
-					server_package.payload.at(pos + 2);
-			pos += 3;
-			if (handshake_type == HandshakeMessageType::ServerHello)
-			{
-				const auto server_hello = parse_server_hello(server_package.payload.begin() + pos,
-						server_package.payload.begin() + pos + handshake_length);
-				pos += handshake_length;
-			}
-			if (handshake_type == HandshakeMessageType::Certificate)
-			{
-				const auto certificate_chain = parse_x509_certificate_chain(server_package.payload.begin() + pos,
-						server_package.payload.begin() + pos + handshake_length);
-			}
-			if (handshake_type == HandshakeMessageType::ServerHelloDone)
-			{
-				std::cout << "tls message received: server hello done";
-			}
-			else
-			{
-				close();
-				throw std::runtime_error("tls error: server_hello expected");
-			}
-		}
-	}
-	else if (server_package.content_type == TlsContentType::Alert)
-	{
-		const auto alert_level = server_package.payload.at(0);
-		const auto alert_type = server_package.payload.at(1);
-		if (alert_level == 2)
-		{
-			close();
-			throw std::runtime_error("tls error: received fatal alert " + std::to_string(alert_type));
-		}
-		else
-		{
-			std::cerr << "Received non-fatal tls alert: " << alert_type;
-		}
-	}
-	else
-	{
-		close();
-		throw std::runtime_error("tls error: handshake package expected");
+		throw std::runtime_error("tls error: malformed server hello");
 	}
 }
 
