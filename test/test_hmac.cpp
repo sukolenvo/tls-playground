@@ -18,3 +18,16 @@ TEST_CASE("hmac_sha256")
 	const auto result = hmac_sha256(std::get<0>(task), std::get<1>(task));
 	REQUIRE(hexStr(result.begin(), result.end()) == std::get<2>(task));
 }
+
+TEST_CASE("hmac_md5")
+{
+	auto task = GENERATE(
+			std::make_tuple(std::vector<unsigned char>{ 'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', '!' },
+					std::vector<unsigned char>{'p', 'a', 's', 's'},
+					"4c889d6bef87bf7bface2a56a948c711")
+	);
+
+	CAPTURE(std::get<0>(task));
+	const auto result = hmac_md5(std::get<0>(task), std::get<1>(task));
+	REQUIRE(hexStr(result.begin(), result.end()) == std::get<2>(task));
+}
