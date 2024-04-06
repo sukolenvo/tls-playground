@@ -2,8 +2,12 @@
 #include <array>
 #include <chrono>
 #include <iostream>
+#include <variant>
 
+#include "asn1.hpp"
+#include "rsa.hpp"
 #include "x509.hpp"
+#include "tls_prf.hpp"
 #include "tls_tcp_socket.hpp"
 
 enum class CipherSuiteType : unsigned int
@@ -37,8 +41,7 @@ struct ProtocolVersion
 struct ClientHelloPackage
 {
 	ProtocolVersion protocol_version;
-	std::chrono::time_point<std::chrono::system_clock> time;
-	std::array<unsigned char, 28> random_bytes;
+	std::array<unsigned char, 32> random_bytes;
 	std::string session_id;
 	std::vector<CipherSuiteType> cipher_suites;
 	std::vector<CompressionType> compression_methods;
@@ -50,11 +53,6 @@ std::vector<char> serialise(const ClientHelloPackage &package)
 	std::vector<char> buffer{};
 	buffer.push_back(package.protocol_version.major);
 	buffer.push_back(package.protocol_version.minor);
-	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(package.time.time_since_epoch());
-	buffer.push_back(static_cast<char>((seconds.count() >> 24) & 0xFF));
-	buffer.push_back(static_cast<char>((seconds.count() >> 16) & 0xFF));
-	buffer.push_back(static_cast<char>((seconds.count() >> 8) & 0xFF));
-	buffer.push_back(static_cast<char>((seconds.count() >> 0) & 0xFF));
 	std::copy(package.random_bytes.begin(), package.random_bytes.end(), std::back_inserter(buffer));
 	buffer.push_back(package.session_id.size());
 	std::copy(package.session_id.begin(), package.session_id.end(), std::back_inserter(buffer));
@@ -76,10 +74,16 @@ std::vector<char> serialise(const ClientHelloPackage &package)
 
 ClientHelloPackage build_client_hello()
 {
+	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+			std::chrono::system_clock::now().time_since_epoch());
+	std::array<unsigned char, 32> random{};
+	random[0] = static_cast<char>((seconds.count() >> 24) & 0xFF);
+	random[0] = static_cast<char>((seconds.count() >> 16) & 0xFF);
+	random[0] = static_cast<char>((seconds.count() >> 8) & 0xFF);
+	random[0] = static_cast<char>((seconds.count() >> 0) & 0xFF);
 	return {
 			{ 3, 1 },
-			std::chrono::system_clock::now(),
-			{},
+			random,
 			"",
 			{ CipherSuiteType::TLS_RSA_WITH_3DES_EDE_CBC_SHA, CipherSuiteType::TLS_RSA_WITH_DES_CBC_SHA,
 			  CipherSuiteType::TLS_RSA_WITH_AES_128_CBC_SHA },
@@ -142,7 +146,7 @@ std::vector<char> build_tls_message(const TlsPackage &tlsPackage)
 struct ServerHello
 {
 	ProtocolVersion protocol_version;
-	std::array<char, 32> random;
+	std::array<unsigned char, 32> random;
 	std::string session;
 	CipherSuiteType cipher_suite_type;
 	CompressionType compression_type;
@@ -152,7 +156,7 @@ ServerHello parse_server_hello(auto begin, const auto end)
 {
 	const auto major = *begin++;
 	const auto minor = *begin++;
-	std::array<char, 32> random{};
+	std::array<unsigned char, 32> random{};
 	std::copy_n(begin, 32, random.begin());
 	begin += 32;
 	const auto session_length = *begin++;
@@ -279,6 +283,74 @@ TlsTcpSocket::ServerHelloData TlsTcpSocket::wait_server_done()
 	}
 }
 
+
+void TlsTcpSocket::wait_server_change_cipher_spec()
+{
+	std::vector<char> buffer(5, 0);
+	while (true)
+	{
+		TcpSocket::read(buffer);
+
+		if (buffer.at(0) < static_cast<char>(TlsContentType::ChangeCipherSpec) ||
+			buffer.at(0) > static_cast<char>(TlsContentType::ApplicationData))
+		{
+			close();
+			throw std::runtime_error("tls error: response is not a valid TLS message");
+		}
+		TlsPackage server_package{};
+		server_package.content_type = static_cast<TlsContentType>(buffer.at(0));
+		server_package.protocol_version = { buffer.at(1), buffer.at(2) };
+		server_package.payload = std::vector<char>(
+				(buffer.at(3) & 0xFF) << 8
+				| ((buffer.at(4) & 0xFF) << 0));
+
+		TcpSocket::read(server_package.payload);
+
+		if (server_package.content_type == TlsContentType::ChangeCipherSpec)
+		{
+			if (server_package.payload != std::vector<char>{ 1 })
+			{
+				close();
+				throw std::runtime_error("tls error: unexpected server change cipher message");
+			}
+			return;
+		}
+		else if (server_package.content_type == TlsContentType::Alert)
+		{
+			const auto alert_level = server_package.payload.at(0);
+			const auto alert_type = server_package.payload.at(1);
+			if (alert_level == 2)
+			{
+				close();
+				throw std::runtime_error("tls error: received fatal alert " + std::to_string(alert_type));
+			}
+			else
+			{
+				std::cerr << "Received non-fatal tls alert: " << alert_type;
+			}
+		}
+		else
+		{
+			close();
+			throw std::runtime_error("tls error: handshake package expected");
+		}
+	}
+}
+
+struct ClientKeyExchangePackage
+{
+	std::vector<unsigned char> encrypted_premaster_secret;
+};
+
+std::vector<char> serialise(const ClientKeyExchangePackage &package)
+{
+	std::vector<char> payload(package.encrypted_premaster_secret.size() + 2);
+	payload[0] = (package.encrypted_premaster_secret.size() >> 8) & 0xFF;
+	payload[1] = (package.encrypted_premaster_secret.size() >> 0) & 0xFF;
+	std::copy(package.encrypted_premaster_secret.begin(), package.encrypted_premaster_secret.end(), payload.begin() + 2);
+	return payload;
+}
+
 void TlsTcpSocket::connect(const Uri &uri)
 {
 	TcpSocket::connect(uri);
@@ -291,11 +363,66 @@ void TlsTcpSocket::connect(const Uri &uri)
 	};
 	TcpSocket::write(build_tls_message(tls_message));
 
-	const auto hello_data = wait_server_done();
-	if (hello_data.certificate_chain.empty() || hello_data.server_hello.protocol_version != ProtocolVersion{ 3, 1 })
+	const auto hello_reply = wait_server_done();
+	if (hello_reply.certificate_chain.empty() || hello_reply.server_hello.protocol_version != ProtocolVersion{ 3, 1 })
 	{
 		close();
 		throw std::runtime_error("tls error: malformed server hello");
+	}
+	switch (hello_reply.server_hello.cipher_suite_type)
+	{
+	case CipherSuiteType::TLS_RSA_WITH_AES_128_CBC_SHA:
+	{
+		std::array<unsigned char, 48> premaster_secret{ 3, 1, 33 };
+		if (hello_reply.certificate_chain.at(0).tbs_certificate.subject_public_key.algorithm.type != AlgorithmType::Rsa)
+		{
+			close();
+			throw std::runtime_error("tls error: unexpected server public key algorithm");
+		}
+		const auto key_asn = parse_asn1(hello_reply.certificate_chain.at(0).tbs_certificate.subject_public_key.key);
+		if (!std::holds_alternative<std::vector<Asn1>>(key_asn.data))
+		{
+			close();
+			throw std::runtime_error("tls error: malformed public key");
+		}
+		const auto modulus_exp = std::get<std::vector<Asn1>>(key_asn.data);
+		if (modulus_exp.size() != 2
+			|| !std::holds_alternative<BigNumber>(modulus_exp.at(0).data)
+			|| !std::holds_alternative<BigNumber>(modulus_exp.at(1).data))
+		{
+			close();
+			throw std::runtime_error("tls error: malformed public key structure");
+		}
+		const auto premaster_encrypted = rsa_encrypt({ premaster_secret.begin(), premaster_secret.end() },
+				std::get<BigNumber>(modulus_exp[1].data),
+				std::get<BigNumber>(modulus_exp[0].data));
+		const auto key_exchange_message = build_tls_payload(HandshakeMessageType::ClientKeyExchange,
+				serialise({ premaster_encrypted }));
+		const TlsPackage tls_message{
+				TlsContentType::Handshake,
+				{ 3, 1 },
+				key_exchange_message
+		};
+		TcpSocket::write(build_tls_message(tls_message));
+
+		const auto master_key = compute_master_secret(premaster_secret, client_hello.random_bytes, hello_reply.server_hello.random);
+
+		// TODO expand master key
+
+		TcpSocket::write(build_tls_message({
+			TlsContentType::ChangeCipherSpec,
+			{3, 1},
+			{ 1 }
+		}));
+
+		wait_server_change_cipher_spec();
+
+
+		break;
+	}
+	default:
+		close();
+		throw std::runtime_error("tls error: unexpected cipher suite requested");
 	}
 }
 

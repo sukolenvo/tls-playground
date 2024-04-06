@@ -6,6 +6,7 @@
 
 TEST_CASE("tls prf")
 {
-	const auto result = prf({'a', 'b'}, {'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'});
-	REQUIRE(hexStr(result.begin(), result.end()) == "f73d398ae7b65c1cb45ca30d10ab6b8e7660d01cc8f4c8b3f857963fe773ec32740eb07dfea41ca7");
+	std::vector<unsigned char> out(40);
+	prf({'a', 'b'}, {'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'}, out);
+	REQUIRE(hexStr(out.begin(), out.end()) == "f73d398ae7b65c1cb45ca30d10ab6b8e7660d01cc8f4c8b3f857963fe773ec32740eb07dfea41ca7");
 }

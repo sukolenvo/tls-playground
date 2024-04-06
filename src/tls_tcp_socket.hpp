@@ -9,6 +9,7 @@ class TlsTcpSocket : public TcpSocket
 private:
 	struct ServerHelloData;
 	ServerHelloData wait_server_done();
+	void wait_server_change_cipher_spec();
 protected:
 	int default_port() override;
 public:
