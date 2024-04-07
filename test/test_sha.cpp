@@ -18,7 +18,15 @@ TEST_CASE("sha1_hash")
 	);
 
 	CAPTURE(task.first);
-	const auto result = sha1_hash(task.first);
+	Sha1Hashing sha1_hash{};
+	sha1_hash.append(task.first);
+	auto result = sha1_hash.close();
+	REQUIRE(hexStr(result.begin(), result.end()) == task.second);
+	for (const auto &item: task.first)
+	{
+		sha1_hash.append({ item });
+	}
+	result = sha1_hash.close();
 	REQUIRE(hexStr(result.begin(), result.end()) == task.second);
 }
 
