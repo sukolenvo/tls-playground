@@ -14,7 +14,7 @@ uint_fast32_t maj(uint_fast32_t x, uint_fast32_t y, uint_fast32_t z)
 	return (x & y) ^ (x & z) ^ (y & z);
 }
 
-struct sha1
+namespace sha1
 {
 
 	const std::array<uint_fast32_t, 4> round_constants{
@@ -268,13 +268,75 @@ std::array<unsigned char, hash_size> sha_hash(SHA sha, const std::vector<unsigne
 	return result;
 }
 
-std::array<unsigned char, 20> sha1_hash(const std::vector<unsigned char> &input)
-{
-	return sha_hash<20>(sha1{}, input);
-}
-
-
 std::array<unsigned char, 32> sha256_hash(const std::vector<unsigned char> &input)
 {
 	return sha_hash<32>(sha256{}, input);
+}
+
+Sha1Hashing::Sha1Hashing() : state(sha1::initial_hash)
+{
+
+}
+
+void Sha1Hashing::append(const std::vector<unsigned char> &input)
+{
+	auto remains = input.size();
+	auto input_iter = input.begin();
+	while (remains > 0)
+	{
+		auto copy = std::min(block_buffer.size() - buffer_pos, remains);
+		std::copy_n(input_iter, copy, block_buffer.begin() + buffer_pos);
+		buffer_pos += copy;
+		remains -= copy;
+		input_iter += copy;
+		if (buffer_pos == block_buffer.size())
+		{
+			sha1::block_hash(block_buffer, state);
+			buffer_pos = 0;
+		}
+	}
+	input_size += input.size();
+}
+
+std::array<unsigned char, 20> Sha1Hashing::close()
+{
+	if (buffer_pos <= block_buffer.size() - 9)
+	{
+		std::fill(block_buffer.begin() + buffer_pos, block_buffer.end() - 8, 0);
+		block_buffer[buffer_pos] = 0x80;
+		block_buffer[block_buffer.size() - 8] = (input_size * 8 & 0xFF00000000000000) >> 56;
+		block_buffer[block_buffer.size() - 7] = (input_size * 8 & 0x00FF000000000000) >> 48;
+		block_buffer[block_buffer.size() - 6] = (input_size * 8 & 0x0000FF0000000000) >> 40;
+		block_buffer[block_buffer.size() - 5] = (input_size * 8 & 0x000000FF00000000) >> 32;
+		block_buffer[block_buffer.size() - 4] = (input_size * 8 & 0xFF000000) >> 24;
+		block_buffer[block_buffer.size() - 3] = (input_size * 8 & 0x00FF0000) >> 16;
+		block_buffer[block_buffer.size() - 2] = (input_size * 8 & 0x0000FF00) >> 8;
+		block_buffer[block_buffer.size() - 1] = (input_size * 8 & 0x000000FF);
+		sha1::block_hash(block_buffer, state);
+	}
+	else
+	{
+		std::fill(block_buffer.begin() + buffer_pos, block_buffer.end(), 0);
+		block_buffer[buffer_pos] = 0x80;
+		sha1::block_hash(block_buffer, state);
+		std::fill(block_buffer.begin(), block_buffer.end() - 8, 0);
+		block_buffer[block_buffer.size() - 8] = (input_size * 8 & 0xFF00000000000000) >> 56;
+		block_buffer[block_buffer.size() - 7] = (input_size * 8 & 0x00FF000000000000) >> 48;
+		block_buffer[block_buffer.size() - 6] = (input_size * 8 & 0x0000FF0000000000) >> 40;
+		block_buffer[block_buffer.size() - 5] = (input_size * 8 & 0x000000FF00000000) >> 32;
+		block_buffer[block_buffer.size() - 4] = (input_size * 8 & 0xFF000000) >> 24;
+		block_buffer[block_buffer.size() - 3] = (input_size * 8 & 0x00FF0000) >> 16;
+		block_buffer[block_buffer.size() - 2] = (input_size * 8 & 0x0000FF00) >> 8;
+		block_buffer[block_buffer.size() - 1] = (input_size * 8 & 0x000000FF);
+		sha1::block_hash(block_buffer, state);
+	}
+	std::array<unsigned char, 20> result{};
+	for (size_t i = 0; i < result.size(); ++i)
+	{
+		result[i] = (state[i / 4] >> ((3 - (i % 4)) * 8)) & 0xFF;
+	}
+	input_size = 0;
+	buffer_pos = 0;
+	state = sha1::initial_hash;
+	return result;
 }
