@@ -6,7 +6,6 @@
 
 #include "aes.hpp"
 #include "asn1.hpp"
-#include "hmac.hpp"
 #include "rsa.hpp"
 #include "sha.hpp"
 #include "tls_prf.hpp"
@@ -34,8 +33,6 @@ enum class CompressionType : char
 	NONE = 0
 };
 
-
-
 struct ClientHelloPackage
 {
 	ProtocolVersion protocol_version;
@@ -46,9 +43,9 @@ struct ClientHelloPackage
 };
 
 
-std::vector<char> serialise(const ClientHelloPackage &package)
+std::vector<unsigned char> serialise(const ClientHelloPackage &package)
 {
-	std::vector<char> buffer{};
+	std::vector<unsigned char> buffer{};
 	buffer.push_back(package.protocol_version.major);
 	buffer.push_back(package.protocol_version.minor);
 	std::copy(package.random_bytes.begin(), package.random_bytes.end(), std::back_inserter(buffer));
@@ -65,7 +62,7 @@ std::vector<char> serialise(const ClientHelloPackage &package)
 	buffer.push_back(package.compression_methods.size());
 	for (const auto compression: package.compression_methods)
 	{
-		buffer.push_back(static_cast<char>(compression));
+		buffer.push_back(static_cast<unsigned char>(compression));
 	}
 	return buffer;
 }
@@ -74,7 +71,6 @@ ClientHelloPackage build_client_hello()
 {
 	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
 			std::chrono::system_clock::now().time_since_epoch());
-//	const auto seconds = std::chrono::seconds(0x66124b36);
 	std::array<unsigned char, 32> random{};
 	random[0] = static_cast<char>((seconds.count() >> 24) & 0xFF);
 	random[1] = static_cast<char>((seconds.count() >> 16) & 0xFF);
@@ -84,7 +80,7 @@ ClientHelloPackage build_client_hello()
 			{ 3, 1 },
 			random,
 			"",
-			{ /*CipherSuiteType::TLS_RSA_WITH_3DES_EDE_CBC_SHA, CipherSuiteType::TLS_RSA_WITH_DES_CBC_SHA,*/
+			{ CipherSuiteType::TLS_RSA_WITH_3DES_EDE_CBC_SHA, CipherSuiteType::TLS_RSA_WITH_DES_CBC_SHA,
 			  CipherSuiteType::TLS_RSA_WITH_AES_128_CBC_SHA },
 			{ CompressionType::NONE }
 	};
@@ -104,7 +100,7 @@ enum class HandshakeMessageType : char
 	Finished = 20
 };
 
-std::vector<unsigned char> build_tls_payload(const HandshakeMessageType &packageType, const std::vector<char> &package)
+std::vector<unsigned char> build_tls_payload(const HandshakeMessageType &packageType, const std::vector<unsigned char> &package)
 {
 	std::vector<unsigned char> result{};
 	result.push_back(static_cast<unsigned char>(packageType));
@@ -126,8 +122,8 @@ struct ServerHello
 
 ServerHello parse_server_hello(auto begin, const auto end)
 {
-	const auto major = *begin++;
-	const auto minor = *begin++;
+	const char major = *begin++;
+	const char minor = *begin++;
 	std::array<unsigned char, 32> random{};
 	std::copy_n(begin, 32, random.begin());
 	begin += 32;
@@ -141,7 +137,7 @@ ServerHello parse_server_hello(auto begin, const auto end)
 		throw std::runtime_error("malformed server_hello");
 	}
 	return {
-			tls1_0_version,
+			{ major, minor },
 			random,
 			session,
 			static_cast<CipherSuiteType>(cipher),
@@ -318,9 +314,9 @@ struct ClientKeyExchangePackage
 	std::vector<unsigned char> encrypted_premaster_secret;
 };
 
-std::vector<char> serialise(const ClientKeyExchangePackage &package)
+std::vector<unsigned char> serialise(const ClientKeyExchangePackage &package)
 {
-	std::vector<char> payload(package.encrypted_premaster_secret.size() + 2);
+	std::vector<unsigned char> payload(package.encrypted_premaster_secret.size() + 2);
 	payload[0] = (package.encrypted_premaster_secret.size() >> 8) & 0xFF;
 	payload[1] = (package.encrypted_premaster_secret.size() >> 0) & 0xFF;
 	std::copy(package.encrypted_premaster_secret.begin(), package.encrypted_premaster_secret.end(),
@@ -349,17 +345,18 @@ void TlsTcpSocket::wait_server_finished(const std::vector<unsigned char> &expect
 		TcpSocket::read(payload_buffer);
 		server_package.payload = { payload_buffer.begin(), payload_buffer.end() };
 
-		auto payload = receive_suite.decrypt(server_package.payload);
+		receive_cipher_suite->decrypt(server_package);
+		receive_record_mac->verify_and_clear_mac(server_package);
 
 		if (server_package.content_type == TlsRecordType::Handshake)
 		{
-			if (payload.size() != 4 + expected_mac.size() ||
-				static_cast<HandshakeMessageType>(payload[0]) != HandshakeMessageType::Finished)
+			if (server_package.payload.size() != 4 + expected_mac.size() ||
+				static_cast<HandshakeMessageType>(server_package.payload[0]) != HandshakeMessageType::Finished)
 			{
 				close();
 				throw std::runtime_error("tls error: malformed server finished message");
 			}
-			if (!std::equal(expected_mac.begin(), expected_mac.end(), payload.begin() + 4)) {
+			if (!std::equal(expected_mac.begin(), expected_mac.end(), server_package.payload.begin() + 4)) {
 				close();
 				throw std::runtime_error("tls error: verify data missmatch");
 			}
@@ -388,134 +385,148 @@ void TlsTcpSocket::wait_server_finished(const std::vector<unsigned char> &expect
 	}
 }
 
+std::vector<unsigned char> build_key_exchange_payload(
+		const SignedX509Certificate &certificate,
+		const std::array<unsigned char, 48> &premaster_key)
+{
+	if (certificate.tbs_certificate.subject_public_key.algorithm.type != AlgorithmType::Rsa)
+	{
+		throw std::runtime_error("tls error: unexpected server public key algorithm");
+	}
+	const auto key_asn = parse_asn1(certificate.tbs_certificate.subject_public_key.key);
+	if (!std::holds_alternative<std::vector<Asn1>>(key_asn.data))
+	{
+		throw std::runtime_error("tls error: malformed public key");
+	}
+	const auto modulus_exp = std::get<std::vector<Asn1>>(key_asn.data);
+	if (modulus_exp.size() != 2
+		|| !std::holds_alternative<BigNumber>(modulus_exp.at(0).data)
+		|| !std::holds_alternative<BigNumber>(modulus_exp.at(1).data))
+	{
+		throw std::runtime_error("tls error: malformed public key structure");
+	}
+	const auto premaster_encrypted = rsa_encrypt({ premaster_key.begin(), premaster_key.end() },
+			std::get<BigNumber>(modulus_exp[1].data),
+			std::get<BigNumber>(modulus_exp[0].data));
+	return build_tls_payload(HandshakeMessageType::ClientKeyExchange,
+			serialise({ premaster_encrypted }));
+}
+
+struct CipherKeys
+{
+	std::vector<unsigned char> client_mac_secret;
+	std::vector<unsigned char> server_mac_secret;
+	std::array<unsigned char, 16> client_key;
+	std::array<unsigned char, 16> server_key;
+	std::array<unsigned char, 16> client_iv;
+	std::array<unsigned char, 16> server_iv;
+};
+
+CipherKeys compute_cipher_keys(
+		const std::vector<unsigned char> &master_secret,
+		const std::array<unsigned char, 32> &client_random,
+		const std::array<unsigned char, 32> server_random)
+{
+	int key_size = 20 * 2 + 16 * 2 + 16 * 2;
+	const auto keys = compute_key_expansion(master_secret, client_random, server_random, key_size);
+	std::vector<unsigned char> client_mac_secret(20);
+	std::copy_n(keys.begin(), client_mac_secret.size(), client_mac_secret.begin());
+	std::vector<unsigned char> server_mac_secret(20);
+	std::copy_n(keys.begin() + 20, server_mac_secret.size(), server_mac_secret.begin());
+	std::array<unsigned char, 16> client_key{};
+	std::copy_n(keys.begin() + 40, client_key.size(), client_key.begin());
+	std::array<unsigned char, 16> server_key{};
+	std::copy_n(keys.begin() + 56, server_key.size(), server_key.begin());
+	std::array<unsigned char, 16> client_iv{};
+	std::copy_n(keys.begin() + 72, client_iv.size(), client_iv.begin());
+	std::array<unsigned char, 16> server_iv{};
+	std::copy_n(keys.begin() + 88, server_iv.size(), server_iv.begin());
+	return {
+			client_mac_secret,
+			server_mac_secret,
+			client_key,
+			server_key,
+			client_iv,
+			server_iv,
+	};
+}
+
 void TlsTcpSocket::connect(const Uri &uri)
 {
-	receive_suite.decrypt = [](const auto &payload) -> std::vector<unsigned char> {
-		return { payload.begin(), payload.end() };
-	};
-	auto write_handshake_message = [&](const auto &tls_message)
-	{
-		handshake_hashing.append(tls_message.payload);
-		TcpSocket::write(tls_message.serialise());
-	};
-	TcpSocket::connect(uri);
-	const auto client_hello = build_client_hello();
-	const auto handshake_message = build_tls_payload(HandshakeMessageType::ClientHello, serialise(client_hello));
-	const TlsRecord tls_message{
-			TlsRecordType::Handshake,
-			tls1_0_version,
-			handshake_message
-	};
-	write_handshake_message(tls_message);
-
-	const auto hello_reply = wait_server_done();
-	if (hello_reply.certificate_chain.empty() || hello_reply.server_hello.protocol_version != tls1_0_version)
-	{
-		close();
-		throw std::runtime_error("tls error: malformed server hello");
-	}
-	switch (hello_reply.server_hello.cipher_suite_type)
-	{
-	case CipherSuiteType::TLS_RSA_WITH_AES_128_CBC_SHA:
-	{
-		std::array<unsigned char, 48> premaster_secret{ 3, 1, 33 };
-		if (hello_reply.certificate_chain.at(0).tbs_certificate.subject_public_key.algorithm.type != AlgorithmType::Rsa)
+	try {
+		auto send_tls_record = [&](TlsRecord tls_message)
 		{
-			close();
-			throw std::runtime_error("tls error: unexpected server public key algorithm");
-		}
-		const auto key_asn = parse_asn1(hello_reply.certificate_chain.at(0).tbs_certificate.subject_public_key.key);
-		if (!std::holds_alternative<std::vector<Asn1>>(key_asn.data))
-		{
-			close();
-			throw std::runtime_error("tls error: malformed public key");
-		}
-		const auto modulus_exp = std::get<std::vector<Asn1>>(key_asn.data);
-		if (modulus_exp.size() != 2
-			|| !std::holds_alternative<BigNumber>(modulus_exp.at(0).data)
-			|| !std::holds_alternative<BigNumber>(modulus_exp.at(1).data))
-		{
-			close();
-			throw std::runtime_error("tls error: malformed public key structure");
-		}
-		const auto premaster_encrypted = rsa_encrypt({ premaster_secret.begin(), premaster_secret.end() },
-				std::get<BigNumber>(modulus_exp[1].data),
-				std::get<BigNumber>(modulus_exp[0].data));
-		const auto key_exchange_message = build_tls_payload(HandshakeMessageType::ClientKeyExchange,
-				serialise({ premaster_encrypted }));
-		const TlsRecord tls_message{
-				TlsRecordType::Handshake,
-				tls1_0_version,
-				key_exchange_message
-		};
-		write_handshake_message(tls_message);
-
-		const auto master_secret = compute_master_secret(premaster_secret, client_hello.random_bytes,
-				hello_reply.server_hello.random);
-
-		int key_size = 20 * 2 + 16 * 2 + 16 * 2;
-		const auto keys = compute_key_expansion(master_secret, client_hello.random_bytes, hello_reply.server_hello.random, key_size);
-		std::vector<unsigned char> client_mac_secret(20);
-		std::copy_n(keys.begin(), client_mac_secret.size(), client_mac_secret.begin());
-		std::vector<unsigned char> server_mac_secret(20);
-		std::copy_n(keys.begin() + 20, server_mac_secret.size(), server_mac_secret.begin());
-		std::array<unsigned char, 16> client_key{};
-		std::copy_n(keys.begin() + 40, client_key.size(), client_key.begin());
-		std::array<unsigned char, 16> server_key{};
-		std::copy_n(keys.begin() + 56, server_key.size(), server_key.begin());
-		std::array<unsigned char, 16> client_iv{};
-		std::copy_n(keys.begin() + 72, client_iv.size(), client_iv.begin());
-		std::array<unsigned char, 16> server_iv{};
-		std::copy_n(keys.begin() + 88, server_iv.size(), server_iv.begin());
-
-		TcpSocket::write(TlsRecord({
-				TlsRecordType::ChangeCipherSpec,
-				tls1_0_version,
-				{ 1 }
-		}).serialise());
-		send_record_mac = TlsRecordMac{ client_mac_secret };
-
-		std::vector<unsigned char> verify_data = handshake_hashing.compute_finished_hash(master_secret, "client finished");
-		auto client_finished_message = build_tls_payload(HandshakeMessageType::Finished, { verify_data.begin(),
-																								 verify_data.end() });
-		handshake_hashing.append(client_finished_message);
-
-		TlsRecord client_finished_record{
-			TlsRecordType::Handshake,
-			tls1_0_version,
-			client_finished_message
-		};
-
-		send_record_mac->append_mac(client_finished_record);
-
-		auto padding = 16 - client_finished_record.payload.size() % 16;
-		client_finished_record.payload.insert(client_finished_record.payload.end(), padding, padding - 1);
-		auto encrypted_payload = aes128_cbc_encrypt({ client_finished_record.payload.begin(), client_finished_record.payload.end() }, client_iv, client_key);
-		TcpSocket::write(TlsRecord{
-				TlsRecordType::Handshake,
-				tls1_0_version,
-				encrypted_payload
-		}.serialise());
-		wait_server_change_cipher_spec();
-		receive_record_mac = TlsRecordMac{ server_mac_secret };
-		receive_suite.decrypt = [&](const auto &payload) -> std::vector<unsigned char> {
-			std::vector<unsigned char> decrypted_block = aes128_cbc_decrypt({ payload.begin(), payload.end() }, server_iv, server_key);
-			if (decrypted_block.size() < decrypted_block.back() + 21)
+			if (tls_message.content_type == TlsRecordType::Handshake)
 			{
-				close();
-				throw std::runtime_error("tls error: malformed payload");
+				handshake_hashing.append(tls_message.payload);
 			}
-			// TODO check mac
-			decrypted_block.resize(decrypted_block.size() - decrypted_block.back() - 21);
-			return decrypted_block;
+			if (send_record_mac.has_value()) {
+				send_record_mac->append_mac(tls_message);
+			}
+			send_cipher_suite->encrypt(tls_message);
+			TcpSocket::write(tls_message.serialise());
 		};
-		wait_server_finished(handshake_hashing.compute_finished_hash(master_secret, "server finished"));
+		TcpSocket::connect(uri);
+		const auto client_hello = build_client_hello();
+		const auto client_hello_message = build_tls_payload(HandshakeMessageType::ClientHello, serialise(client_hello));
+		send_tls_record({
+				TlsRecordType::Handshake,
+				tls1_0_version,
+				client_hello_message
+		});
 
-		break;
-	}
-	default:
+		const auto hello_reply = wait_server_done();
+		if (hello_reply.certificate_chain.empty() || hello_reply.server_hello.protocol_version != tls1_0_version)
+		{
+			throw std::runtime_error("tls error: malformed server hello");
+		}
+		switch (hello_reply.server_hello.cipher_suite_type)
+		{
+		case CipherSuiteType::TLS_RSA_WITH_AES_128_CBC_SHA:
+		{
+			std::array<unsigned char, 48> premaster_secret{ 3, 1, 33 };
+
+			send_tls_record({
+					TlsRecordType::Handshake,
+					tls1_0_version,
+					build_key_exchange_payload(hello_reply.certificate_chain.at(0), premaster_secret)
+			});
+			send_tls_record({
+					TlsRecordType::ChangeCipherSpec,
+					tls1_0_version,
+					{ 1 }
+			});
+
+			const auto master_secret = compute_master_secret(premaster_secret, client_hello.random_bytes,
+					hello_reply.server_hello.random);
+			const auto cipher_keys = compute_cipher_keys(master_secret, client_hello.random_bytes, hello_reply.server_hello.random);
+
+			send_record_mac = TlsRecordMac{ cipher_keys.client_mac_secret };
+			send_cipher_suite = std::make_unique<Aes128CipherSuite>(cipher_keys.client_iv, cipher_keys.client_key);
+
+			auto client_finished_message = build_tls_payload(
+					HandshakeMessageType::Finished,
+					handshake_hashing.compute_finished_hash(master_secret, "client finished"));
+
+			send_tls_record({
+					TlsRecordType::Handshake,
+					tls1_0_version,
+					client_finished_message
+			});
+
+			wait_server_change_cipher_spec();
+			receive_record_mac = TlsRecordMac{ cipher_keys.server_mac_secret };
+			receive_cipher_suite = std::make_unique<Aes128CipherSuite>(cipher_keys.server_iv, cipher_keys.server_key);
+			wait_server_finished(handshake_hashing.compute_finished_hash(master_secret, "server finished"));
+			break;
+		}
+		default:
+			throw std::runtime_error("tls error: unexpected cipher suite requested");
+		}
+	} catch (const std::runtime_error &e)
+	{
 		close();
-		throw std::runtime_error("tls error: unexpected cipher suite requested");
+		throw e;
 	}
 }
 

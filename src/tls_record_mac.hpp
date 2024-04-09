@@ -41,6 +41,8 @@ public:
 	explicit TlsRecordMac(const std::vector<unsigned char> &secret);
 
 	void append_mac(TlsRecord &record);
+
+	void verify_and_clear_mac(TlsRecord &record);
 };
 
 #endif //TLS_PLAYGROUND_TLS_RECORD_MAC_HPP
