@@ -34,12 +34,7 @@ enum class CompressionType : char
 	NONE = 0
 };
 
-struct ProtocolVersion
-{
-	char major, minor;
 
-	int operator<=>(const ProtocolVersion &other) const = default;
-};
 
 struct ClientHelloPackage
 {
@@ -95,21 +90,6 @@ ClientHelloPackage build_client_hello()
 	};
 }
 
-enum class TlsContentType : char
-{
-	ChangeCipherSpec = 20,
-	Alert = 21,
-	Handshake = 22,
-	ApplicationData = 23
-};
-
-struct TlsRecord
-{
-	TlsContentType content_type;
-	ProtocolVersion protocol_version;
-	std::vector<char> payload;
-};
-
 enum class HandshakeMessageType : char
 {
 	HelloRequest = 0,
@@ -124,26 +104,14 @@ enum class HandshakeMessageType : char
 	Finished = 20
 };
 
-std::vector<char> build_tls_payload(const HandshakeMessageType &packageType, const std::vector<char> &package)
+std::vector<unsigned char> build_tls_payload(const HandshakeMessageType &packageType, const std::vector<char> &package)
 {
-	std::vector<char> result{};
-	result.push_back(static_cast<char>(packageType));
-	result.push_back(static_cast<char>((package.size() >> 16) & 0xFF));
-	result.push_back(static_cast<char>((package.size() >> 8) & 0xFF));
-	result.push_back(static_cast<char>((package.size() >> 0) & 0xFF));
+	std::vector<unsigned char> result{};
+	result.push_back(static_cast<unsigned char>(packageType));
+	result.push_back(static_cast<unsigned char>((package.size() >> 16) & 0xFF));
+	result.push_back(static_cast<unsigned char>((package.size() >> 8) & 0xFF));
+	result.push_back(static_cast<unsigned char>((package.size() >> 0) & 0xFF));
 	std::copy(package.begin(), package.end(), std::back_inserter(result));
-	return result;
-}
-
-std::vector<char> build_tls_message(const TlsRecord &tlsPackage)
-{
-	std::vector<char> result{};
-	result.push_back(static_cast<char>(tlsPackage.content_type));
-	result.push_back(tlsPackage.protocol_version.major);
-	result.push_back(tlsPackage.protocol_version.minor);
-	result.push_back(static_cast<char>((tlsPackage.payload.size() >> 8) & 0xFF));
-	result.push_back(static_cast<char>((tlsPackage.payload.size() >> 0) & 0xFF));
-	std::copy(tlsPackage.payload.begin(), tlsPackage.payload.end(), std::back_inserter(result));
 	return result;
 }
 
@@ -173,7 +141,7 @@ ServerHello parse_server_hello(auto begin, const auto end)
 		throw std::runtime_error("malformed server_hello");
 	}
 	return {
-			{ major, minor },
+			tls1_0_version,
 			random,
 			session,
 			static_cast<CipherSuiteType>(cipher),
@@ -212,27 +180,28 @@ TlsTcpSocket::ServerHelloData TlsTcpSocket::wait_server_done()
 {
 	ServerHello server_hello{};
 	std::vector<SignedX509Certificate> certificate_chain{};
-	std::vector<char> buffer(5, 0);
+	std::vector<char> header_buffer(5);
+	std::vector<char> payload_buffer{};
 	while (true)
 	{
-		TcpSocket::read(buffer);
+		TcpSocket::read(header_buffer);
 
-		if (buffer.at(0) < static_cast<char>(TlsContentType::ChangeCipherSpec) ||
-			buffer.at(0) > static_cast<char>(TlsContentType::ApplicationData))
+		if (header_buffer.at(0) < static_cast<char>(TlsRecordType::ChangeCipherSpec) ||
+			header_buffer.at(0) > static_cast<char>(TlsRecordType::ApplicationData))
 		{
 			close();
 			throw std::runtime_error("tls error: response is not a valid TLS message");
 		}
 		TlsRecord server_package{};
-		server_package.content_type = static_cast<TlsContentType>(buffer.at(0));
-		server_package.protocol_version = { buffer.at(1), buffer.at(2) };
-		server_package.payload = std::vector<char>(
-				(buffer.at(3) & 0xFF) << 8
-				| ((buffer.at(4) & 0xFF) << 0));
+		server_package.content_type = static_cast<TlsRecordType>(header_buffer.at(0));
+		server_package.protocol_version = { header_buffer.at(1), header_buffer.at(2) };
 
-		TcpSocket::read(server_package.payload);
+		payload_buffer.resize((header_buffer.at(3) & 0xFF) << 8
+							  | ((header_buffer.at(4) & 0xFF) << 0));
+		TcpSocket::read(payload_buffer);
+		server_package.payload = { payload_buffer.begin(), payload_buffer.end() };
 
-		if (server_package.content_type == TlsContentType::Handshake)
+		if (server_package.content_type == TlsRecordType::Handshake)
 		{
 			size_t pos{};
 			while (pos < server_package.payload.size())
@@ -267,7 +236,7 @@ TlsTcpSocket::ServerHelloData TlsTcpSocket::wait_server_done()
 				}
 			}
 		}
-		else if (server_package.content_type == TlsContentType::Alert)
+		else if (server_package.content_type == TlsRecordType::Alert)
 		{
 			const auto alert_level = server_package.payload.at(0);
 			const auto alert_type = server_package.payload.at(1);
@@ -292,36 +261,37 @@ TlsTcpSocket::ServerHelloData TlsTcpSocket::wait_server_done()
 
 void TlsTcpSocket::wait_server_change_cipher_spec()
 {
-	std::vector<char> buffer(5, 0);
+	std::vector<char> header_buffer(5);
+	std::vector<char> payload_buffer{};
 	while (true)
 	{
-		TcpSocket::read(buffer);
+		TcpSocket::read(header_buffer);
 
-		if (buffer.at(0) < static_cast<char>(TlsContentType::ChangeCipherSpec) ||
-			buffer.at(0) > static_cast<char>(TlsContentType::ApplicationData))
+		if (header_buffer.at(0) < static_cast<char>(TlsRecordType::ChangeCipherSpec) ||
+			header_buffer.at(0) > static_cast<char>(TlsRecordType::ApplicationData))
 		{
 			close();
 			throw std::runtime_error("tls error: response is not a valid TLS message");
 		}
 		TlsRecord server_package{};
-		server_package.content_type = static_cast<TlsContentType>(buffer.at(0));
-		server_package.protocol_version = { buffer.at(1), buffer.at(2) };
-		server_package.payload = std::vector<char>(
-				(buffer.at(3) & 0xFF) << 8
-				| ((buffer.at(4) & 0xFF) << 0));
+		server_package.content_type = static_cast<TlsRecordType>(header_buffer.at(0));
+		server_package.protocol_version = { header_buffer.at(1), header_buffer.at(2) };
 
-		TcpSocket::read(server_package.payload);
+		payload_buffer.resize((header_buffer.at(3) & 0xFF) << 8
+							  | ((header_buffer.at(4) & 0xFF) << 0));
+		TcpSocket::read(payload_buffer);
+		server_package.payload = { payload_buffer.begin(), payload_buffer.end() };
 
-		if (server_package.content_type == TlsContentType::ChangeCipherSpec)
+		if (server_package.content_type == TlsRecordType::ChangeCipherSpec)
 		{
-			if (server_package.payload != std::vector<char>{ 1 })
+			if (server_package.payload != std::vector<unsigned char>{ 1 })
 			{
 				close();
 				throw std::runtime_error("tls error: unexpected server change cipher message");
 			}
 			return;
 		}
-		else if (server_package.content_type == TlsContentType::Alert)
+		else if (server_package.content_type == TlsRecordType::Alert)
 		{
 			const auto alert_level = server_package.payload.at(0);
 			const auto alert_type = server_package.payload.at(1);
@@ -359,30 +329,29 @@ std::vector<char> serialise(const ClientKeyExchangePackage &package)
 }
 
 void TlsTcpSocket::wait_server_finished(const std::vector<unsigned char> &expected_mac) {
-	std::vector<char> buffer(5, 0);
+	std::vector<char> header_buffer(5, 0);
+	std::vector<char> payload_buffer{};
 	while (true)
 	{
-		TcpSocket::read(buffer);
+		TcpSocket::read(header_buffer);
 
-		if (buffer.at(0) < static_cast<char>(TlsContentType::ChangeCipherSpec) ||
-			buffer.at(0) > static_cast<char>(TlsContentType::ApplicationData))
+		if (header_buffer.at(0) < static_cast<char>(TlsRecordType::ChangeCipherSpec) ||
+			header_buffer.at(0) > static_cast<char>(TlsRecordType::ApplicationData))
 		{
 			close();
 			throw std::runtime_error("tls error: response is not a valid TLS message");
 		}
 		TlsRecord server_package{};
-		server_package.content_type = static_cast<TlsContentType>(buffer.at(0));
-		server_package.protocol_version = { buffer.at(1), buffer.at(2) };
-		server_package.payload = std::vector<char>(
-				(buffer.at(3) & 0xFF) << 8
-				| ((buffer.at(4) & 0xFF) << 0));
-
-		TcpSocket::read(server_package.payload);
-
+		server_package.content_type = static_cast<TlsRecordType>(header_buffer.at(0));
+		server_package.protocol_version = { header_buffer.at(1), header_buffer.at(2) };
+		payload_buffer.resize((header_buffer.at(3) & 0xFF) << 8
+							  | ((header_buffer.at(4) & 0xFF) << 0));
+		TcpSocket::read(payload_buffer);
+		server_package.payload = { payload_buffer.begin(), payload_buffer.end() };
 
 		auto payload = receive_suite.decrypt(server_package.payload);
 
-		if (server_package.content_type == TlsContentType::Handshake)
+		if (server_package.content_type == TlsRecordType::Handshake)
 		{
 			if (payload.size() != 4 + expected_mac.size() ||
 				static_cast<HandshakeMessageType>(payload[0]) != HandshakeMessageType::Finished)
@@ -397,7 +366,7 @@ void TlsTcpSocket::wait_server_finished(const std::vector<unsigned char> &expect
 			return;
 
 		}
-		else if (server_package.content_type == TlsContentType::Alert)
+		else if (server_package.content_type == TlsRecordType::Alert)
 		{
 			const auto alert_level = server_package.payload.at(0);
 			const auto alert_type = server_package.payload.at(1);
@@ -427,20 +396,20 @@ void TlsTcpSocket::connect(const Uri &uri)
 	auto write_handshake_message = [&](const auto &tls_message)
 	{
 		handshake_hashing.append(tls_message.payload);
-		TcpSocket::write(build_tls_message(tls_message));
+		TcpSocket::write(tls_message.serialise());
 	};
 	TcpSocket::connect(uri);
 	const auto client_hello = build_client_hello();
 	const auto handshake_message = build_tls_payload(HandshakeMessageType::ClientHello, serialise(client_hello));
 	const TlsRecord tls_message{
-			TlsContentType::Handshake,
-			{ 3, 1 },
+			TlsRecordType::Handshake,
+			tls1_0_version,
 			handshake_message
 	};
 	write_handshake_message(tls_message);
 
 	const auto hello_reply = wait_server_done();
-	if (hello_reply.certificate_chain.empty() || hello_reply.server_hello.protocol_version != ProtocolVersion{ 3, 1 })
+	if (hello_reply.certificate_chain.empty() || hello_reply.server_hello.protocol_version != tls1_0_version)
 	{
 		close();
 		throw std::runtime_error("tls error: malformed server hello");
@@ -475,8 +444,8 @@ void TlsTcpSocket::connect(const Uri &uri)
 		const auto key_exchange_message = build_tls_payload(HandshakeMessageType::ClientKeyExchange,
 				serialise({ premaster_encrypted }));
 		const TlsRecord tls_message{
-				TlsContentType::Handshake,
-				{ 3, 1 },
+				TlsRecordType::Handshake,
+				tls1_0_version,
 				key_exchange_message
 		};
 		write_handshake_message(tls_message);
@@ -499,35 +468,36 @@ void TlsTcpSocket::connect(const Uri &uri)
 		std::array<unsigned char, 16> server_iv{};
 		std::copy_n(keys.begin() + 88, server_iv.size(), server_iv.begin());
 
-		TcpSocket::write(build_tls_message({
-				TlsContentType::ChangeCipherSpec,
-				{ 3, 1 },
+		TcpSocket::write(TlsRecord({
+				TlsRecordType::ChangeCipherSpec,
+				tls1_0_version,
 				{ 1 }
-		}));
+		}).serialise());
+		send_record_mac = TlsRecordMac{ client_mac_secret };
 
 		std::vector<unsigned char> verify_data = handshake_hashing.compute_finished_hash(master_secret, "client finished");
 		auto client_finished_message = build_tls_payload(HandshakeMessageType::Finished, { verify_data.begin(),
 																								 verify_data.end() });
 		handshake_hashing.append(client_finished_message);
 
-		std::vector<unsigned char> mac_buffer(8, 0); // seq_num 0
-		mac_buffer.push_back(static_cast<unsigned char>(TlsContentType::Handshake));
-		mac_buffer.push_back(3);
-		mac_buffer.push_back(1);
-		mac_buffer.push_back(static_cast<char>((client_finished_message.size() >> 8) & 0xFF));
-		mac_buffer.push_back(static_cast<char>((client_finished_message.size() >> 0) & 0xFF));
-		std::copy(client_finished_message.begin(), client_finished_message.end(), std::back_inserter(mac_buffer));
-		const auto mac = hmac_sha1(mac_buffer, client_mac_secret);
-		std::copy(mac.begin(), mac.end(), std::back_inserter(client_finished_message));
-		auto padding = 16 - client_finished_message.size() % 16;
-		client_finished_message.insert(client_finished_message.end(), padding, padding - 1);
-		auto encrypted_payload = aes128_cbc_encrypt({ client_finished_message.begin(), client_finished_message.end() }, client_iv, client_key);
-		TcpSocket::write(build_tls_message({
-				TlsContentType::Handshake,
-				{ 3, 1},
-				{ encrypted_payload.begin(), encrypted_payload.end() }
-		}));
+		TlsRecord client_finished_record{
+			TlsRecordType::Handshake,
+			tls1_0_version,
+			client_finished_message
+		};
+
+		send_record_mac->append_mac(client_finished_record);
+
+		auto padding = 16 - client_finished_record.payload.size() % 16;
+		client_finished_record.payload.insert(client_finished_record.payload.end(), padding, padding - 1);
+		auto encrypted_payload = aes128_cbc_encrypt({ client_finished_record.payload.begin(), client_finished_record.payload.end() }, client_iv, client_key);
+		TcpSocket::write(TlsRecord{
+				TlsRecordType::Handshake,
+				tls1_0_version,
+				encrypted_payload
+		}.serialise());
 		wait_server_change_cipher_spec();
+		receive_record_mac = TlsRecordMac{ server_mac_secret };
 		receive_suite.decrypt = [&](const auto &payload) -> std::vector<unsigned char> {
 			std::vector<unsigned char> decrypted_block = aes128_cbc_decrypt({ payload.begin(), payload.end() }, server_iv, server_key);
 			if (decrypted_block.size() < decrypted_block.back() + 21)

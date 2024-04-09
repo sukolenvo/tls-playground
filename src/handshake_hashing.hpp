@@ -12,7 +12,8 @@ class HandshakeHashing
 	Md5Hashing md5_hashing{};
 	Sha1Hashing sha1_hashing{};
 public:
-	void append(const std::vector<char> &handshake_message);
+	void append(const std::vector<unsigned char> &handshake_message);
+
 	[[nodiscard]]
 	std::vector<unsigned char> compute_finished_hash(
 			const std::vector<unsigned char> &master_secret,

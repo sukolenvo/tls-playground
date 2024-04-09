@@ -4,11 +4,10 @@
 
 #include "handshake_hashing.hpp"
 
-void HandshakeHashing::append(const std::vector<char> &handshake_message)
+void HandshakeHashing::append(const std::vector<unsigned char> &handshake_message)
 {
-	std::vector<unsigned char> msg{handshake_message.begin(), handshake_message.end()};
-	md5_hashing.append(msg);
-	sha1_hashing.append(msg);
+	md5_hashing.append(handshake_message);
+	sha1_hashing.append(handshake_message);
 }
 
 std::vector<unsigned char> HandshakeHashing::compute_finished_hash(
