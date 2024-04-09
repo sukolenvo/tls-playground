@@ -137,65 +137,88 @@ const auto initial_hash = std::array<uint_fast32_t, 4>{
 
 std::array<unsigned char, 16> md5_hash(const std::vector<unsigned char> &input)
 {
-	std::array<uint_fast32_t, 4> hash = initial_hash;
-	std::array<unsigned char, 64> block{};
-	for (size_t i = 0; i <= input.size(); i += block.size())
+	Md5Hashing hashing{};
+	hashing.append(input);
+	return hashing.close();
+}
+
+Md5Hashing::Md5Hashing() : state(initial_hash)
+{
+
+}
+
+void Md5Hashing::append(const std::vector<unsigned char> &input)
+{
+	auto remains = input.size();
+	auto input_iter = input.begin();
+	while (remains > 0)
 	{
-		const auto payload_size = std::min(input.size() - i, block.size());
-		if (payload_size == block.size())
+		auto copy = std::min(block_buffer.size() - buffer_pos, remains);
+		std::copy_n(input_iter, copy, block_buffer.begin() + buffer_pos);
+		buffer_pos += copy;
+		remains -= copy;
+		input_iter += copy;
+		if (buffer_pos == block_buffer.size())
 		{
-			std::copy_n(input.begin() + i, payload_size, block.begin());
-			md5_block_hash(block, hash);
-		}
-		else if (payload_size <= block.size() - 9)
-		{
-			std::fill(block.begin(), block.end(), 0);
-			std::copy_n(input.begin() + i, payload_size, block.begin());
-			block[payload_size] = 0x80;
-			block[block.size() - 1] = (input.size() * 8 & 0xFF00000000000000) >> 56;
-			block[block.size() - 2] = (input.size() * 8 & 0x00FF000000000000) >> 48;
-			block[block.size() - 3] = (input.size() * 8 & 0x0000FF0000000000) >> 40;
-			block[block.size() - 4] = (input.size() * 8 & 0x000000FF00000000) >> 32;
-			block[block.size() - 5] = (input.size() * 8 & 0xFF000000) >> 24;
-			block[block.size() - 6] = (input.size() * 8 & 0x00FF0000) >> 16;
-			block[block.size() - 7] = (input.size() * 8 & 0x0000FF00) >> 8;
-			block[block.size() - 8] = (input.size() * 8 & 0x000000FF);
-			md5_block_hash(block, hash);
-		}
-		else
-		{
-			std::fill(block.begin(), block.end(), 0);
-			std::copy_n(input.begin() + i, payload_size, block.begin());
-			block[payload_size] = 0x80;
-			md5_block_hash(block, hash);
-			std::fill(block.begin(), block.end(), 0);
-			block[block.size() - 1] = (input.size() * 8 & 0xFF00000000000000) >> 56;
-			block[block.size() - 2] = (input.size() * 8 & 0x00FF000000000000) >> 48;
-			block[block.size() - 3] = (input.size() * 8 & 0x0000FF0000000000) >> 40;
-			block[block.size() - 4] = (input.size() * 8 & 0x000000FF00000000) >> 32;
-			block[block.size() - 5] = (input.size() * 8 & 0xFF000000) >> 24;
-			block[block.size() - 6] = (input.size() * 8 & 0x00FF0000) >> 16;
-			block[block.size() - 7] = (input.size() * 8 & 0x0000FF00) >> 8;
-			block[block.size() - 8] = (input.size() * 8 & 0x000000FF);
-			md5_block_hash(block, hash);
+			md5_block_hash(block_buffer, state);
+			buffer_pos = 0;
 		}
 	}
-	return {
-			static_cast<unsigned char>(hash[0] & 0xFF),
-			static_cast<unsigned char>((hash[0] & 0xFF00) >> 8),
-			static_cast<unsigned char>((hash[0] & 0xFF0000) >> 16),
-			static_cast<unsigned char>((hash[0] & 0xFF000000) >> 24),
-			static_cast<unsigned char>(hash[1] & 0xFF),
-			static_cast<unsigned char>((hash[1] & 0xFF00) >> 8),
-			static_cast<unsigned char>((hash[1] & 0xFF0000) >> 16),
-			static_cast<unsigned char>((hash[1] & 0xFF000000) >> 24),
-			static_cast<unsigned char>(hash[2] & 0xFF),
-			static_cast<unsigned char>((hash[2] & 0xFF00) >> 8),
-			static_cast<unsigned char>((hash[2] & 0xFF0000) >> 16),
-			static_cast<unsigned char>((hash[2] & 0xFF000000) >> 24),
-			static_cast<unsigned char>(hash[3] & 0xFF),
-			static_cast<unsigned char>((hash[3] & 0xFF00) >> 8),
-			static_cast<unsigned char>((hash[3] & 0xFF0000) >> 16),
-			static_cast<unsigned char>((hash[3] & 0xFF000000) >> 24)
+	input_size += input.size();
+}
+
+std::array<unsigned char, 16> Md5Hashing::close()
+{
+	if (buffer_pos <= block_buffer.size() - 9)
+	{
+		std::fill(block_buffer.begin() + buffer_pos, block_buffer.end() - 8, 0);
+		block_buffer[buffer_pos] = 0x80;
+		block_buffer[block_buffer.size() - 1] = (input_size * 8 & 0xFF00000000000000) >> 56;
+		block_buffer[block_buffer.size() - 2] = (input_size * 8 & 0x00FF000000000000) >> 48;
+		block_buffer[block_buffer.size() - 3] = (input_size * 8 & 0x0000FF0000000000) >> 40;
+		block_buffer[block_buffer.size() - 4] = (input_size * 8 & 0x000000FF00000000) >> 32;
+		block_buffer[block_buffer.size() - 5] = (input_size * 8 & 0xFF000000) >> 24;
+		block_buffer[block_buffer.size() - 6] = (input_size * 8 & 0x00FF0000) >> 16;
+		block_buffer[block_buffer.size() - 7] = (input_size * 8 & 0x0000FF00) >> 8;
+		block_buffer[block_buffer.size() - 8] = (input_size * 8 & 0x000000FF);
+		md5_block_hash(block_buffer, state);
+	}
+	else
+	{
+		std::fill(block_buffer.begin() + buffer_pos, block_buffer.end(), 0);
+		block_buffer[buffer_pos] = 0x80;
+		md5_block_hash(block_buffer, state);
+		std::fill(block_buffer.begin(), block_buffer.end() - 8, 0);
+		block_buffer[block_buffer.size() - 1] = (input_size * 8 & 0xFF00000000000000) >> 56;
+		block_buffer[block_buffer.size() - 2] = (input_size * 8 & 0x00FF000000000000) >> 48;
+		block_buffer[block_buffer.size() - 3] = (input_size * 8 & 0x0000FF0000000000) >> 40;
+		block_buffer[block_buffer.size() - 4] = (input_size * 8 & 0x000000FF00000000) >> 32;
+		block_buffer[block_buffer.size() - 5] = (input_size * 8 & 0xFF000000) >> 24;
+		block_buffer[block_buffer.size() - 6] = (input_size * 8 & 0x00FF0000) >> 16;
+		block_buffer[block_buffer.size() - 7] = (input_size * 8 & 0x0000FF00) >> 8;
+		block_buffer[block_buffer.size() - 8] = (input_size * 8 & 0x000000FF);
+		md5_block_hash(block_buffer, state);
+	}
+	std::array<unsigned char, 16> result{
+			static_cast<unsigned char>(state[0] & 0xFF),
+			static_cast<unsigned char>((state[0] & 0xFF00) >> 8),
+			static_cast<unsigned char>((state[0] & 0xFF0000) >> 16),
+			static_cast<unsigned char>((state[0] & 0xFF000000) >> 24),
+			static_cast<unsigned char>(state[1] & 0xFF),
+			static_cast<unsigned char>((state[1] & 0xFF00) >> 8),
+			static_cast<unsigned char>((state[1] & 0xFF0000) >> 16),
+			static_cast<unsigned char>((state[1] & 0xFF000000) >> 24),
+			static_cast<unsigned char>(state[2] & 0xFF),
+			static_cast<unsigned char>((state[2] & 0xFF00) >> 8),
+			static_cast<unsigned char>((state[2] & 0xFF0000) >> 16),
+			static_cast<unsigned char>((state[2] & 0xFF000000) >> 24),
+			static_cast<unsigned char>(state[3] & 0xFF),
+			static_cast<unsigned char>((state[3] & 0xFF00) >> 8),
+			static_cast<unsigned char>((state[3] & 0xFF0000) >> 16),
+			static_cast<unsigned char>((state[3] & 0xFF000000) >> 24)
 	};
+	input_size = 0;
+	buffer_pos = 0;
+	state = initial_hash;
+	return result;
 }

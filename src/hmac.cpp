@@ -45,6 +45,17 @@ std::array<unsigned char, 32> hmac_sha256(
 	return hmac<32>(input, key, &sha256_hash);
 }
 
+std::array<unsigned char, 20> hmac_sha1(
+		const std::vector<unsigned char> &input,
+		const std::vector<unsigned char> &key)
+{
+	return hmac<20>(input, key, [](const auto &input) {
+		Sha1Hashing hashing{};
+		hashing.append(input);
+		return hashing.close();
+	});
+}
+
 std::array<unsigned char, 16> hmac_md5(
 		const std::vector<unsigned char> &input,
 		const std::vector<unsigned char> &key)

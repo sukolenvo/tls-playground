@@ -5,7 +5,16 @@
 
 TEST_CASE("get from local server")
 {
-	const auto result = http_get("https://google.com/config.txt");
+	const auto result = http_get("http://localhost:8080/config.txt");
+	CAPTURE(std::string(result.begin(), result.end()));
+	const auto expected_prefix = std::string{"HTTP/1.0 200 OK"};
+	REQUIRE(result.size() > expected_prefix.size());
+	REQUIRE(std::string(result.begin(), result.begin() + expected_prefix.size()) == expected_prefix);
+}
+
+TEST_CASE("get from google")
+{
+	const auto result = http_get("https://google.com/");
 	CAPTURE(std::string(result.begin(), result.end()));
 	const auto expected_prefix = std::string{"HTTP/1.0 200 OK"};
 	REQUIRE(result.size() > expected_prefix.size());
