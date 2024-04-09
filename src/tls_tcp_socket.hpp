@@ -4,6 +4,7 @@
 #include <functional>
 #include <vector>
 
+#include "handshake_hashing.hpp"
 #include "md5.hpp"
 #include "sha.hpp"
 #include "tcp_socket.hpp"
@@ -15,9 +16,10 @@ struct TlsSuite {
 class TlsTcpSocket : public TcpSocket
 {
 private:
+	HandshakeHashing handshake_hashing{};
 	TlsSuite receive_suite;
 	struct ServerHelloData;
-	ServerHelloData wait_server_done(Sha1Hashing &handshake_hashing, Md5Hashing &md5_hashing);
+	ServerHelloData wait_server_done();
 	void wait_server_change_cipher_spec();
 	void wait_server_finished(const std::vector<unsigned char> &expected_mac);
 protected:

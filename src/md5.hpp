@@ -2,6 +2,8 @@
 #ifndef TLS_PLAYGROUND_MD5_HPP
 #define TLS_PLAYGROUND_MD5_HPP
 
+#include <cstddef>
+#include <cstdint>
 #include <array>
 #include <vector>
 

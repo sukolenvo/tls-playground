@@ -49,21 +49,6 @@ std::vector<unsigned char> compute_master_secret(
 	return result;
 }
 
-std::vector<unsigned char> compute_verify_data(
-		const std::vector<unsigned char> &master_secret,
-		const std::string &label,
-		const std::array<unsigned char, 16> &md5_hash,
-		const std::array<unsigned char, 20> &sha1_hash)
-{
-	std::vector<unsigned char> seed(label.size() + md5_hash.size() + sha1_hash.size());
-	std::copy(label.begin(), label.end(), seed.begin());
-	std::copy(md5_hash.begin(), md5_hash.end(), seed.begin() + label.size());
-	std::copy(sha1_hash.begin(), sha1_hash.end(), seed.begin() + label.size() + md5_hash.size());
-	std::vector<unsigned char> result(12);
-	prf(master_secret, seed, result);
-	return result;
-}
-
 std::vector<unsigned char> compute_key_expansion(const std::vector<unsigned char> &master_secret,
 		const std::array<unsigned char, 32> &client_random, const std::array<unsigned char, 32> &server_random,
 		size_t key_size)
@@ -76,4 +61,19 @@ std::vector<unsigned char> compute_key_expansion(const std::vector<unsigned char
 	std::vector<unsigned char> result(key_size);
 	prf(master_secret , seed, result);
 	return result;
+}
+
+std::vector<unsigned char> prf(
+		const std::vector<unsigned char> &secret,
+		const std::string &label,
+		const std::vector<unsigned char> &seed,
+		size_t length)
+{
+	std::vector<unsigned char> prefixed_seed(label.size() + seed.size());
+	std::copy(label.begin(), label.end(), prefixed_seed.begin());
+	std::copy(seed.begin(), seed.end(), prefixed_seed.begin() + label.size());
+	std::vector<unsigned char> result(length);
+	prf(secret, prefixed_seed, result);
+	return result;
+
 }

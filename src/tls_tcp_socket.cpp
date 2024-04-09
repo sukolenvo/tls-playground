@@ -208,7 +208,7 @@ struct TlsTcpSocket::ServerHelloData
 	std::vector<SignedX509Certificate> certificate_chain;
 };
 
-TlsTcpSocket::ServerHelloData TlsTcpSocket::wait_server_done(Sha1Hashing &handshake_hashing, Md5Hashing &md5_hashing)
+TlsTcpSocket::ServerHelloData TlsTcpSocket::wait_server_done()
 {
 	ServerHello server_hello{};
 	std::vector<SignedX509Certificate> certificate_chain{};
@@ -242,22 +242,8 @@ TlsTcpSocket::ServerHelloData TlsTcpSocket::wait_server_done(Sha1Hashing &handsh
 						server_package.payload.at(pos) << 16 | server_package.payload.at(pos + 1) << 8 |
 						server_package.payload.at(pos + 2);
 				pos += 3;
-//				if (handshake_type == HandshakeMessageType::ServerHello)
-//				{
-//					std::array<unsigned char, 32> mock_server_random{ 0x66, 0x12, 0x90, 0x5c, 0x38, 0x30, 0x37, 0xae,
-//																	  0x38, 0x92, 0x18, 0x4f,
-//																	  0xd4, 0xcb, 0x06, 0xf4, 0xbe, 0x1b, 0xc7, 0x03,
-//																	  0x6b, 0x05, 0x5d, 0xa9,
-//																	  0x44, 0x4f, 0x57, 0x4e, 0x47, 0x52, 0x44, 0x00 };
-//					std::copy(mock_server_random.begin(), mock_server_random.end(),
-//							server_package.payload.begin() + pos + 2);
-//					std::copy(mock_server_random.begin(), mock_server_random.end(),
-//							server_package.payload.begin() + pos + 2 + 32 + 1);
-//				}
-				const std::vector<unsigned char> hash_payload{ server_package.payload.begin() + pos - 4,
-															   server_package.payload.begin() + pos + handshake_length };
-				handshake_hashing.append(hash_payload);
-				md5_hashing.append(hash_payload);
+				handshake_hashing.append({ server_package.payload.begin() + pos - 4,
+										   server_package.payload.begin() + pos + handshake_length });
 				if (handshake_type == HandshakeMessageType::ServerHello)
 				{
 					server_hello = parse_server_hello(server_package.payload.begin() + pos,
@@ -438,13 +424,9 @@ void TlsTcpSocket::connect(const Uri &uri)
 	receive_suite.decrypt = [](const auto &payload) -> std::vector<unsigned char> {
 		return { payload.begin(), payload.end() };
 	};
-	Sha1Hashing handshake_hashing{};
-	Md5Hashing md5_hashing{};
 	auto write_handshake_message = [&](const auto &tls_message)
 	{
-		std::vector<unsigned char> hash_payload(tls_message.payload.begin(), tls_message.payload.end());
-		handshake_hashing.append(hash_payload);
-		md5_hashing.append(hash_payload);
+		handshake_hashing.append(tls_message.payload);
 		TcpSocket::write(build_tls_message(tls_message));
 	};
 	TcpSocket::connect(uri);
@@ -457,7 +439,7 @@ void TlsTcpSocket::connect(const Uri &uri)
 	};
 	write_handshake_message(tls_message);
 
-	const auto hello_reply = wait_server_done(handshake_hashing, md5_hashing);
+	const auto hello_reply = wait_server_done();
 	if (hello_reply.certificate_chain.empty() || hello_reply.server_hello.protocol_version != ProtocolVersion{ 3, 1 })
 	{
 		close();
@@ -523,15 +505,10 @@ void TlsTcpSocket::connect(const Uri &uri)
 				{ 1 }
 		}));
 
-		std::vector<unsigned char> verify_data = compute_verify_data(master_secret,
-				"client finished",
-				Md5Hashing(md5_hashing).close(),
-				Sha1Hashing(handshake_hashing).close());
+		std::vector<unsigned char> verify_data = handshake_hashing.compute_finished_hash(master_secret, "client finished");
 		auto client_finished_message = build_tls_payload(HandshakeMessageType::Finished, { verify_data.begin(),
 																								 verify_data.end() });
-		std::vector<unsigned char> hash_payload(client_finished_message.begin(), client_finished_message.end());
-		handshake_hashing.append(hash_payload);
-		md5_hashing.append(hash_payload);
+		handshake_hashing.append(client_finished_message);
 
 		std::vector<unsigned char> mac_buffer(8, 0); // seq_num 0
 		mac_buffer.push_back(static_cast<unsigned char>(TlsContentType::Handshake));
@@ -562,10 +539,7 @@ void TlsTcpSocket::connect(const Uri &uri)
 			decrypted_block.resize(decrypted_block.size() - decrypted_block.back() - 21);
 			return decrypted_block;
 		};
-		wait_server_finished(compute_verify_data(master_secret,
-				"server finished",
-				Md5Hashing(md5_hashing).close(),
-				Sha1Hashing(handshake_hashing).close()));
+		wait_server_finished(handshake_hashing.compute_finished_hash(master_secret, "server finished"));
 
 		break;
 	}
