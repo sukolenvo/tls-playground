@@ -105,15 +105,14 @@ void unsubstitute_state(State &state)
 }
 
 template<size_t key_length, size_t rounds = key_length / 4 + 6>
-std::array<State, rounds + 1>
-build_schedule_key(const std::array<unsigned char, key_length> &key)
+std::array<State, rounds + 1> build_schedule_key(const std::array<unsigned char, key_length> &key)
 {
 	std::array<std::array<unsigned char, 4>, (rounds + 1) * 4> buffer{};
 	for (size_t i = 0; i < key_length; i += 4)
 	{
 		buffer.at(i / 4) = { key[i], key[i + 1], key[i + 2], key[i + 3] };
 	}
-	int xor_constant = 0x01;
+	unsigned char xor_constant = 0x01;
 	for (size_t i = key_length / 4; i < buffer.size(); ++i)
 	{
 		buffer[i] = buffer[i - 1];
@@ -176,11 +175,7 @@ unsigned char mul(unsigned char left, unsigned char right)
 		{
 			result ^= left;
 		}
-		left <<= 1;
-		if ((left & 0x80) != 0)
-		{
-			left ^= 0x1b;
-		}
+		left = (left << 1) ^ (left & 0x80 ? 0x1b : 0);
 	}
 	return result;
 }
@@ -202,22 +197,22 @@ void mix_columns(State &state, const State &matrix)
 {
 	for (size_t i = 0; i < state.size(); ++i)
 	{
-		const auto c0 = mul(state.at(i).at(0), matrix.at(0).at(0))
-						^ mul(state.at(i).at(1), matrix.at(1).at(0))
-						^ mul(state.at(i).at(2), matrix.at(2).at(0))
-						^ mul(state.at(i).at(3), matrix.at(3).at(0));
-		const auto c1 = mul(state.at(i).at(0), matrix.at(0).at(1))
-						^ mul(state.at(i).at(1), matrix.at(1).at(1))
-						^ mul(state.at(i).at(2), matrix.at(2).at(1))
-						^ mul(state.at(i).at(3), matrix.at(3).at(1));
-		const auto c2 = mul(state.at(i).at(0), matrix.at(0).at(2))
-						^ mul(state.at(i).at(1), matrix.at(1).at(2))
-						^ mul(state.at(i).at(2), matrix.at(2).at(2))
-						^ mul(state.at(i).at(3), matrix.at(3).at(2));
-		const auto c3 = mul(state.at(i).at(0), matrix.at(0).at(3))
-						^ mul(state.at(i).at(1), matrix.at(1).at(3))
-						^ mul(state.at(i).at(2), matrix.at(2).at(3))
-						^ mul(state.at(i).at(3), matrix.at(3).at(3));
+		const auto c0 = mul(matrix.at(0).at(0), state.at(i).at(0))
+						^ mul(matrix.at(0).at(1), state.at(i).at(1))
+						^ mul(matrix.at(0).at(2), state.at(i).at(2))
+						^ mul(matrix.at(0).at(3), state.at(i).at(3));
+		const auto c1 = mul(matrix.at(1).at(0), state.at(i).at(0))
+						^ mul(matrix.at(1).at(1), state.at(i).at(1))
+						^ mul(matrix.at(1).at(2), state.at(i).at(2))
+						^ mul(matrix.at(1).at(3), state.at(i).at(3));
+		const auto c2 = mul(matrix.at(2).at(0), state.at(i).at(0))
+						^ mul(matrix.at(2).at(1), state.at(i).at(1))
+						^ mul(matrix.at(2).at(2), state.at(i).at(2))
+						^ mul(matrix.at(2).at(3), state.at(i).at(3));
+		const auto c3 = mul(matrix.at(3).at(0), state.at(i).at(0))
+						^ mul(matrix.at(3).at(1), state.at(i).at(1))
+						^ mul(matrix.at(3).at(2), state.at(i).at(2))
+						^ mul(matrix.at(3).at(3), state.at(i).at(3));
 		state.at(i).at(0) = c0;
 		state.at(i).at(1) = c1;
 		state.at(i).at(2) = c2;
@@ -230,18 +225,18 @@ void mix_rows(State &state)
 	// row 0 no-op
 
 	// row 1
-	std::swap(state.at(1).at(0), state.at(1).at(1));
-	std::swap(state.at(1).at(0), state.at(1).at(2));
-	std::swap(state.at(1).at(0), state.at(1).at(3));
+	std::swap(state.at(0).at(1), state.at(1).at(1));
+	std::swap(state.at(1).at(1), state.at(2).at(1));
+	std::swap(state.at(2).at(1), state.at(3).at(1));
 
 	// row 2
-	std::swap(state.at(2).at(0), state.at(2).at(2));
-	std::swap(state.at(2).at(1), state.at(2).at(3));
+	std::swap(state.at(0).at(2), state.at(2).at(2));
+	std::swap(state.at(1).at(2), state.at(3).at(2));
 
 	// row 3
-	std::swap(state.at(3).at(0), state.at(3).at(1));
-	std::swap(state.at(3).at(1), state.at(3).at(2));
-	std::swap(state.at(3).at(2), state.at(3).at(3));
+	std::swap(state.at(0).at(3), state.at(1).at(3));
+	std::swap(state.at(0).at(3), state.at(2).at(3));
+	std::swap(state.at(0).at(3), state.at(3).at(3));
 }
 
 void unmix_rows(State &state)
@@ -249,23 +244,23 @@ void unmix_rows(State &state)
 	// row 0 no-op
 
 	// row 1
-	std::swap(state.at(1).at(0), state.at(1).at(1));
-	std::swap(state.at(1).at(1), state.at(1).at(2));
-	std::swap(state.at(1).at(2), state.at(1).at(3));
+	std::swap(state.at(0).at(1), state.at(1).at(1));
+	std::swap(state.at(0).at(1), state.at(2).at(1));
+	std::swap(state.at(0).at(1), state.at(3).at(1));
 
 
 	// row 2
-	std::swap(state.at(2).at(0), state.at(2).at(2));
-	std::swap(state.at(2).at(1), state.at(2).at(3));
+	std::swap(state.at(0).at(2), state.at(2).at(2));
+	std::swap(state.at(1).at(2), state.at(3).at(2));
 
 	// row 3
-	std::swap(state.at(3).at(0), state.at(3).at(1));
-	std::swap(state.at(3).at(0), state.at(3).at(2));
-	std::swap(state.at(3).at(0), state.at(3).at(3));
+	std::swap(state.at(0).at(3), state.at(1).at(3));
+	std::swap(state.at(1).at(3), state.at(2).at(3));
+	std::swap(state.at(2).at(3), state.at(3).at(3));
 }
 
 template<int rounds>
-void aes_block_encrypt(const std::array<unsigned char, 16> &input_block, std::array<unsigned char, 16> output_block,
+void aes_block_encrypt(const std::array<unsigned char, 16> &input_block, std::array<unsigned char, 16> &output_block,
 		const std::array<State, rounds + 1> &schedule_keys)
 {
 	State state{};
@@ -274,7 +269,7 @@ void aes_block_encrypt(const std::array<unsigned char, 16> &input_block, std::ar
 	{
 		for (size_t j = 0; j < 4; ++j)
 		{
-			state.at(i).at(j) = input_block.at(j + 4 * i);
+			state.at(i).at(j) = input_block.at(4 * i + j);
 		}
 	}
 	xor_state(state, schedule_keys.at(0));
@@ -292,13 +287,13 @@ void aes_block_encrypt(const std::array<unsigned char, 16> &input_block, std::ar
 	{
 		for (size_t j = 0; j < 4; ++j)
 		{
-			output_block.at(i + 4 * j) = state.at(i).at(j);
+			output_block.at(i * 4 + j) = state.at(i).at(j);
 		}
 	}
 }
 
 template<int rounds>
-void aes_block_decrypt(const std::array<unsigned char, 16> &input_block, std::array<unsigned char, 16> output_block,
+void aes_block_decrypt(const std::array<unsigned char, 16> &input_block, std::array<unsigned char, 16> &output_block,
 		const std::array<State, rounds + 1> &schedule_keys)
 {
 	State state{};
@@ -307,7 +302,7 @@ void aes_block_decrypt(const std::array<unsigned char, 16> &input_block, std::ar
 	{
 		for (size_t j = 0; j < 4; ++j)
 		{
-			state.at(i).at(j) = input_block.at(i + 4 * j);
+			state.at(i).at(j) = input_block.at(i * 4 + j);
 		}
 	}
 	xor_state(state, schedule_keys.at(rounds));
@@ -325,7 +320,7 @@ void aes_block_decrypt(const std::array<unsigned char, 16> &input_block, std::ar
 	{
 		for (size_t j = 0; j < 4; ++j)
 		{
-			output_block.at(i + 4 * j) = state.at(i).at(j);
+			output_block.at(i * 4 + j) = state.at(i).at(j);
 		}
 	}
 }

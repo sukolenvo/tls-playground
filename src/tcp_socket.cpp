@@ -39,7 +39,7 @@ void TcpSocket::connect(const Uri &uri)
 	sockaddr_in address{};
 	address.sin_family = AF_INET;
 	address.sin_addr = *reinterpret_cast<in_addr*>(host_result->h_addr_list[0]);
-	address.sin_port = htons(uri.port.value_or(80));
+	address.sin_port = htons(uri.port.value_or(default_port()));
 
 	if (::connect(new_socket, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0)
 	{
@@ -81,13 +81,13 @@ std::vector<char> TcpSocket::read()
 	return result;
 }
 
-void TcpSocket::write(const std::string &bytes)
+void TcpSocket::write(const std::vector<char> &bytes)
 {
 	if (socket_fd == -1)
 	{
 		throw std::runtime_error("failed to write: socket is not connected");
 	}
-	if (send(socket_fd, bytes.data(), bytes.length(), 0) == -1)
+	if (send(socket_fd, bytes.data(), bytes.size(), 0) == -1)
 	{
 		close();
 		throw std::runtime_error("Failed to write into the socket");
@@ -101,4 +101,33 @@ void TcpSocket::close()
 		::close(socket_fd);
 		socket_fd = -1;
 	}
+}
+
+void TcpSocket::read(std::vector<char> &buffer)
+{
+	if (socket_fd == -1)
+	{
+		throw std::runtime_error("failed to read: socket is not connected");
+	}
+	int remains = buffer.size();
+	while (remains > 0)
+	{
+		const auto received = ::read(socket_fd, buffer.data() + buffer.size() - remains, remains);
+		if (received == -1)
+		{
+			close();
+			throw std::runtime_error("Failed to read from the socket: remote error");
+		}
+		if (received == 0)
+		{
+			close();
+			throw std::runtime_error("Failed to read from the socket: EOF");
+		}
+		remains -= received;
+	}
+}
+
+int TcpSocket::default_port()
+{
+	return 80;
 }

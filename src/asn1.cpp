@@ -119,7 +119,7 @@ std::vector<Asn1> parse_asn1(auto &begin, const auto end)
 				throw std::runtime_error("big string with non-zero padding");
 			}
 			std::vector<unsigned char> number{};
-			std::copy_n(begin, length, std::back_inserter(number));
+			std::copy_n(begin, length - 1, std::back_inserter(number));
 			value.data = BigNumber(number);
 			begin += length - 1;
 		}

@@ -2,6 +2,7 @@
 #define TLS_PLAYGROUND_AES_HPP
 
 #include <array>
+#include <vector>
 
 std::vector<unsigned char> aes128_cbc_encrypt(const std::vector<unsigned char> &input,
 		const std::array<unsigned char, 16> &iv,
