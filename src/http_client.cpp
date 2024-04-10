@@ -1,4 +1,5 @@
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 
 #include "uri.hpp"
@@ -8,12 +9,13 @@
 
 std::string build_request(const Uri &uri)
 {
-	return "GET " + uri.path + R"( HTTP/1.1
-Host: localhost
-User-agent: github/sukolenvo
-Connection: close
-
-)";
+	std::ostringstream stringStream;
+	stringStream << "GET " << uri.path << " HTTP/1.1" << "\r\n";
+	stringStream << "Host: " << uri.host << "\r\n";
+	stringStream << "User-agent: github/sukolenvo\r\n";
+	stringStream << "Connection: close\r\n";
+	stringStream << "\r\n";
+	return stringStream.str();
 }
 
 std::vector<char> http_get(const std::string &url)

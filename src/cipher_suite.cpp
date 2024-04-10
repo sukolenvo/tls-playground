@@ -14,6 +14,7 @@ void Aes128CipherSuite::encrypt(TlsRecord &record)
 	auto padding = 16 - record.payload.size() % 16;
 	record.payload.insert(record.payload.end(), padding, padding - 1);
 	record.payload = aes128_cbc_encrypt(record.payload, iv, key);
+	std::copy(record.payload.end() - iv.size(), record.payload.end(), iv.begin());
 }
 
 void Aes128CipherSuite::decrypt(TlsRecord &tls_record)
@@ -24,5 +25,6 @@ void Aes128CipherSuite::decrypt(TlsRecord &tls_record)
 		throw std::runtime_error("tls error: malformed payload");
 	}
 	decrypted_block.resize(decrypted_block.size() - decrypted_block.back() - 1);
+	std::copy(tls_record.payload.end() - iv.size(), tls_record.payload.end(), iv.begin());
 	tls_record.payload = decrypted_block;
 }

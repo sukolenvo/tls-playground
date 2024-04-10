@@ -49,6 +49,7 @@ void TlsRecordMac::verify_and_clear_mac(TlsRecord &record)
 		throw std::runtime_error("tls error: bad record mac signature");
 	}
 	record.payload.resize(record.payload.size() - 20);
+	++sequence_number;
 }
 
 std::vector<char> TlsRecord::serialise() const
