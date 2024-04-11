@@ -7,14 +7,14 @@
 
 struct Uri
 {
-	std::string protocol;
-	std::string host;
-	std::optional<int> port;
-	std::string path;
+    std::string protocol;
+    std::string host;
+    std::optional<int> port;
+    std::string path;
 
-	int operator<=>(const Uri &other) const = default;
+    int operator<=>(const Uri &other) const = default;
 
-	friend std::ostream &operator<<(std::ostream &stream, const Uri &it);
+    friend std::ostream &operator<<(std::ostream &stream, const Uri &it);
 };
 
 Uri parse_url(const std::string &url);

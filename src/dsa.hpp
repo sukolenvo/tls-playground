@@ -11,24 +11,24 @@ BigNumber generate_secret(const BigNumber &q);
 
 struct DsaSignature
 {
-	BigNumber r;
-	BigNumber s;
+    BigNumber r;
+    BigNumber s;
 };
 
 class Dsa
 {
-	BigNumber g, p, q;
+    BigNumber g, p, q;
 
 public:
-	Dsa(BigNumber g, BigNumber p, BigNumber q);
+    Dsa(BigNumber g, BigNumber p, BigNumber q);
 
-	[[nodiscard]]
-	DsaSignature sign_sha256(const std::vector<unsigned char> &message, const BigNumber &private_key) const;
+    [[nodiscard]]
+    DsaSignature sign_sha256(const std::vector<unsigned char> &message, const BigNumber &private_key) const;
 
-	[[nodiscard]]
-	bool verify_sha256(const std::vector<unsigned char> &message,
-			const DsaSignature &signature,
-			const BigNumber &public_key) const;
+    [[nodiscard]]
+    bool verify_sha256(const std::vector<unsigned char> &message,
+            const DsaSignature &signature,
+            const BigNumber &public_key) const;
 };
 
 #endif //TLS_PLAYGROUND_DSA_HPP

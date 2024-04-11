@@ -9,15 +9,15 @@
 template<class InputIt>
 std::string hexStr(InputIt first, InputIt last)
 {
-	std::stringstream ss;
-	ss << std::hex;
+    std::stringstream ss;
+    ss << std::hex;
 
-	while(first != last)
-	{
-		ss << std::setw(2) << std::setfill('0') << (int)*first++;
-	}
+    while (first != last)
+    {
+        ss << std::setw(2) << std::setfill('0') << (int)*first++;
+    }
 
-	return ss.str();
+    return ss.str();
 }
 
 std::vector<char> read_file(const std::string &name);
