@@ -39,7 +39,7 @@ if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
   enable_testing()
   add_subdirectory(test)
-#  TODO fuzz testing
+  add_subdirectory(fuzz_test)
 
   include(CTest)
 endif ()

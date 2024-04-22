@@ -175,11 +175,11 @@ BigNumber operator*(const BigNumber &first, const BigNumber &second)
 {
     BigNumber result{{}, first.sign ^ second.sign };
     BigNumber operand{ first.magnitude, result.sign };
-    for (auto &value: std::ranges::reverse_view(second.magnitude))
+    for (auto i = second.magnitude.rbegin(); i != second.magnitude.rend(); ++i)
     {
         for (unsigned char mask = 0x01; mask != 0; mask <<= 1)
         {
-            if ((value & mask) != 0)
+            if ((*i & mask) != 0)
             {
                 result = result + operand;
             }
@@ -202,10 +202,10 @@ BigNumber &operator<<=(BigNumber &number, size_t pos)
     number.magnitude.insert(number.magnitude.cend(), pos / 8, 0);
     pos %= 8;
     unsigned char carry = 0;
-    for (auto &value: std::ranges::reverse_view(number.magnitude))
+    for (auto i = number.magnitude.rbegin(); i != number.magnitude.rend(); ++i)
     {
-        int result = (value << pos) + carry;
-        value = result & 0xFF;
+        int result = (*i << pos) + carry;
+        *i = result & 0xFF;
         carry = (result >> 8) & 0xFF;
     }
     if (carry > 0)

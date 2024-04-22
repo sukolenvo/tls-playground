@@ -280,7 +280,7 @@ std::vector<HandshakeMessage> parse_server_handshake(const TlsRecord &record, Ha
         std::vector<unsigned char> handshake_payload{ record.payload.begin() + pos,
                                                       record.payload.begin() + pos + handshake_length };
         handshake_hashing.append({ record.payload.begin() + pos - 4, record.payload.begin() + pos + handshake_length });
-        result.emplace_back(handshake_type, handshake_payload);
+        result.push_back(HandshakeMessage{handshake_type, handshake_payload});
         pos += handshake_length;
     }
     return result;

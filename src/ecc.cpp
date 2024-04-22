@@ -35,11 +35,12 @@ BigPoint EllipticCurve::multiply_point(const BigPoint &point, const BigNumber &m
 {
     std::optional<BigPoint> accumulator{};
     auto add_operand = point;
-    for (auto val: std::ranges::reverse_view(multiplier.data()))
+    const auto data = multiplier.data();
+    for (auto i = data.rbegin(); i != data.rend(); ++i)
     {
         for (unsigned char mask = 1; mask != 0; mask <<= 1)
         {
-            if ((val & mask) != 0)
+            if ((*i & mask) != 0)
             {
                 if (accumulator.has_value())
                 {
